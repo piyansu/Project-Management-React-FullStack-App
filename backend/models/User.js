@@ -1,0 +1,86 @@
+import mongoose from "mongoose";
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+
+// Simple function to get IST formatted date
+function getISTDateTime() {
+    return new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+    });
+}
+
+const userSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => crypto.randomBytes(4).toString('hex'),
+        trim: true
+    },
+    fullName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        lowercase: true,
+        match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    },
+    password: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    createdAt: {
+        type: String,
+        default: getISTDateTime,
+    },
+    updatedAt: {
+        type: String,
+        default: getISTDateTime,
+    }
+});
+
+// Update the updatedAt field on save
+userSchema.pre('save', async function(next) {
+    // Update the updatedAt timestamp
+    if (!this.isNew) {
+        this.updatedAt = getISTDateTime();
+    }
+    
+    // Hash password if modified
+    if (!this.isModified('password')) return next();
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Password comparison method
+userSchema.methods.comparePassword = async function(candidatePassword) {
+    return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Clean up JSON output
+userSchema.set('toJSON', {
+    transform: (doc, ret) => {
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+    }
+});
+
+const User = mongoose.model("User", userSchema);
+export default User;
