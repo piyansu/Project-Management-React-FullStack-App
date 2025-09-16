@@ -37,8 +37,13 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true,
+        required: function () { return !this.googleId; },
         trim: true
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
     },
     createdAt: {
         type: String,
@@ -51,12 +56,11 @@ const userSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field on save
-userSchema.pre('save', async function(next) {
-    // Update the updatedAt timestamp
+userSchema.pre('save', async function (next) {
     if (!this.isNew) {
         this.updatedAt = getISTDateTime();
     }
-    
+
     // Hash password if modified
     if (!this.isModified('password')) return next();
     try {
@@ -69,7 +73,7 @@ userSchema.pre('save', async function(next) {
 });
 
 // Password comparison method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
 

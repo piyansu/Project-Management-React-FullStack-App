@@ -1,16 +1,23 @@
 import { useState } from 'react';
 import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, LoaderCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google'; // Import the hook for Google Login
 import projectManLogo from '../assets/logo.png';
+import { useAuth } from '../context/AuthContext';
 
 export default function AuthPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Get both login and the new loginWithGoogle functions from the context
+  const { login, loginWithGoogle } = useAuth(); 
 
   // State for API interaction
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
+  
   // State for Login Form
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -43,27 +50,19 @@ export default function AuthPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginForm),
-      });
+      // Use the login function from the AuthContext
+      await login(loginForm.email, loginForm.password);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed. Please check your credentials.');
-      }
-      
-      // Handle successful login (e.g., store token, redirect)
-      console.log('Login successful:', data);
       setSuccess('Login successful! Redirecting...');
-      // TODO: Add redirection logic, e.g., window.location.href = '/dashboard';
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1000);
 
     } catch (err) {
+      // If login fails, the context throws an error which we catch here
       setError(err.message);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Re-enable the form on failure
     }
   };
 
@@ -90,7 +89,6 @@ export default function AuthPage() {
         throw new Error(data.message || 'Registration failed. Please try again.');
       }
 
-      console.log('Registration successful:', data);
       setSuccess('Registration successful! Please log in.');
       setActiveTab('login'); // Switch to login tab on success
       setRegisterForm({fullName: '', email: '', password: '', confirmPassword: ''});
@@ -101,6 +99,29 @@ export default function AuthPage() {
       setIsLoading(false);
     }
   };
+
+  // --- New Google Login Logic ---
+  const handleGoogleSuccess = async (codeResponse) => {
+    resetState();
+    setIsLoading(true);
+    try {
+      await loginWithGoogle(codeResponse.code);
+      setSuccess('Login successful! Redirecting...');
+      setTimeout(() => navigate('/dashboard'), 1000);
+    } catch (err) {
+      setError(err.message || 'An error occurred during Google login.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => setError('Google login failed. Please try again.'),
+    flow: 'auth-code', // Use the secure authorization code flow
+  });
+  // --- End of New Google Login Logic ---
+
 
   const commonInputClass = "w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors";
   
@@ -114,6 +135,20 @@ export default function AuthPage() {
       {isLoading ? 'Processing...' : text}
     </button>
   );
+
+  // New component for the Google Button
+  const GoogleButton = () => (
+    <button
+      type="button"
+      onClick={() => googleLogin()}
+      disabled={isLoading}
+      className="w-full flex justify-center items-center bg-white text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors shadow-md hover:shadow-lg transform hover:-translate-y-0.5 border border-gray-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo" className="h-5 w-5 mr-3" />
+      Continue with Google
+    </button>
+  );
+
 
   return (
     <div className="h-screen bg-white flex items-center justify-center scale-90">
@@ -156,6 +191,19 @@ export default function AuthPage() {
               <div><FormButton text="Create Account" /></div>
             </form>
           )}
+        </div>
+
+        <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-200"></span>
+            </div>
+            <div className="relative flex justify-center text-sm">
+                <span className="bg-white px-2 text-gray-500">Or</span>
+            </div>
+        </div>
+
+        <div>
+            <GoogleButton />
         </div>
 
         <div className="text-center">
