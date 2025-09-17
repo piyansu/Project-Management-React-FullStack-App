@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import connectDB from './config/db.js';
 import userRoutes from './routes/UserRoute.js';
+import projectRoutes from './routes/ProjectRoute.js';
 
 
 const app = express();
@@ -24,6 +25,7 @@ connectDB().then(() => {
 });
 
 app.use('/auth', userRoutes);
+app.use('/projects', projectRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

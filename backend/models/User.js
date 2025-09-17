@@ -77,11 +77,17 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
 
+// Add indexes for better query performance
+userSchema.index({ email: 1 });
+userSchema.index({ googleId: 1 });
+
+
 // Clean up JSON output
 userSchema.set('toJSON', {
     transform: (doc, ret) => {
         delete ret._id;
         delete ret.__v;
+        delete ret.password;
         return ret;
     }
 });
