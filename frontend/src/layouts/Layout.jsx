@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+// 1. Import useLocation from react-router-dom
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
     Menu,
     ChevronsLeft,
@@ -27,16 +28,16 @@ const Layout = () => {
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
+    // 2. Get the current location object
+    const location = useLocation();
+
     const profileRef = useRef(null);
     const dropdownRef = useRef(null);
 
+    // 3. Removed the hardcoded 'active' property
     const sidebarItems = [
-        { icon: Home, label: 'Dashboard', href: '/dashboard', active: true },
-        { icon: FolderKanban, label: 'Projects', href: '/projects', active: false },
-        { icon: Users, label: 'Team', href: '/team', active: false },
-        { icon: Calendar, label: 'Calendar', href: '/calendar', active: false },
-        { icon: BarChart3, label: 'Analytics', href: '/analytics', active: false },
-        { icon: Settings, label: 'Settings', href: '/settings', active: false },
+        { icon: Home, label: 'Dashboard', href: '/dashboard' },
+        { icon: FolderKanban, label: 'Projects', href: '/projects' },
     ];
 
     const toggleSidebar = () => {
@@ -125,6 +126,7 @@ const Layout = () => {
                             <img
                                 src={projectManLogo}
                                 className="w-45 h-10"
+                                alt="ProjectMan Logo"
                             />
                         </div>
                     ) : (
@@ -146,19 +148,24 @@ const Layout = () => {
                 <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                     {sidebarItems.map((item, index) => {
                         const IconComponent = item.icon;
+                        // 4. Dynamically check if the link is active
+                        const isActive = location.pathname === item.href;
+                        
                         return (
                             <Link
                                 key={index}
                                 to={item.href}
+                                // Use the 'isActive' variable to apply conditional classes
                                 className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
-                                    item.active
+                                    isActive
                                         ? 'bg-blue-50 text-blue-700 border-l-2 border-blue-600'
                                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
                                 onClick={() => !isDesktop && setMobileSidebarOpen(false)}
                             >
                                 <IconComponent className={`w-5 h-5 flex-shrink-0 ${
-                                    item.active ? 'text-blue-600' : 'group-hover:text-blue-600'
+                                    // Use 'isActive' here as well
+                                    isActive ? 'text-blue-600' : 'group-hover:text-blue-600'
                                 } transition-colors duration-200`} />
                                 {(isDesktop ? sidebarOpen : mobileSidebarOpen) && (
                                     <span className="font-medium text-sm">{item.label}</span>

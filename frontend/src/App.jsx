@@ -5,6 +5,7 @@ import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import Layout from './layouts/Layout';
 import { RouteProtect } from './middleware/RouteProtect';
+import Projects from './pages/Projects';
 
 
 const App = () => {
@@ -15,6 +16,7 @@ const App = () => {
                         {/* Parent Route */}
                         <Route path="/" element={<RouteProtect><Layout /></RouteProtect>}>
                                 <Route path="dashboard" element={<RouteProtect><Dashboard /></RouteProtect>} />
+                                <Route path="projects" element={<RouteProtect><Projects /></RouteProtect>} />
                         </Route>
                 </Routes>
         )
