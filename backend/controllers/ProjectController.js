@@ -7,8 +7,8 @@ export const createProject = async (req, res) => {
 
         const ownerId = req.user._id;
 
-        if (!title || !description || !startDate || !dueDate) {
-            return res.status(400).json({ message: 'Please provide title, description, start date, and due date.' });
+        if (!title || !startDate) {
+            return res.status(400).json({ message: 'Please provide title and start date.' });
         }
 
         const allMemberIds = [...new Set([ownerId.toString(), ...(members || [])])];
@@ -21,13 +21,14 @@ export const createProject = async (req, res) => {
 
         const project = new Project({
             title,
-            description,
+            description: description || '',
             startDate,
-            dueDate,
+            dueDate: dueDate || null,
             priority,
             status,
             ownerId,
-            members: allMemberIds // Use the validated list of member IDs
+            members: allMemberIds,
+            admins: [ownerId.toString()]
         });
 
         const createdProject = await project.save();
@@ -82,8 +83,9 @@ export const updateProject = async (req, res) => {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        // Only the project owner can update it
-        if (project.ownerId.toString() !== req.user._id.toString()) {
+        const isOwner = project.ownerId.toString() === req.user._id.toString();
+
+        if (!isOwner) {
             return res.status(403).json({ message: 'User not authorized to update this project.' });
         }
 
@@ -114,8 +116,6 @@ export const deleteProject = async (req, res) => {
         if (!project) {
             return res.status(404).json({ message: 'Project not found.' });
         }
-
-        // Only the project owner can delete it
         if (project.ownerId.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: 'User not authorized to delete this project.' });
         }
@@ -138,8 +138,12 @@ export const addProjectMember = async (req, res) => {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        if (project.ownerId.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Only the project owner can add members.' });
+        // MODIFIED: Allow owner or admins to add members
+        const isOwner = project.ownerId.toString() === req.user._id.toString();
+        const isAdmin = project.admins.includes(req.user._id.toString());
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ message: 'Only the project owner or admins can add members.' });
         }
 
         const memberToAdd = await User.findOne({ email });
@@ -162,18 +166,20 @@ export const addProjectMember = async (req, res) => {
     }
 };
 
-
 export const removeProjectMember = async (req, res) => {
     try {
         const { id, memberId } = req.params;
-        const project = await Project.findOne({_id : id });
+        const project = await Project.findOne({ _id: id });
 
         if (!project) {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        if (project.ownerId.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Only the project owner can remove members.' });
+        const isOwner = project.ownerId.toString() === req.user._id.toString();
+        const isAdmin = project.admins.includes(req.user._id.toString());
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ message: 'Only the project owner or admins can remove members.' });
         }
 
         if (project.ownerId.toString() === memberId) {
@@ -181,12 +187,79 @@ export const removeProjectMember = async (req, res) => {
         }
 
         project.members = project.members.filter(m => m.toString() !== memberId);
+        project.admins = project.admins.filter(a => a.toString() !== memberId);
+
         await project.save();
 
-        res.status(200).json({ message: 'Member removed successfully.', members: project.members });
+        res.status(200).json({ message: 'Member removed successfully.', project });
 
     } catch (error) {
         console.error('Error removing member:', error);
+        res.status(500).json({ message: 'Server error.' });
+    }
+};
+
+export const addProjectAdmin = async (req, res) => {
+    try {
+        const { email, userId } = req.body;
+        const project = await Project.findOne({ _id: req.params.id });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found.' });
+        }
+
+        if (project.ownerId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Only the project owner can add admins.' });
+        }
+
+        const adminToAdd = await User.findOne({ email, _id: userId });
+        if (!adminToAdd) {
+            return res.status(404).json({ message: `User with email ${email} and id ${userId} not found.` });
+        }
+
+        if (!project.members.includes(adminToAdd._id.toString())) {
+            project.members.push(adminToAdd._id);
+        }
+
+        if (project.admins.includes(adminToAdd._id.toString())) {
+            return res.status(400).json({ message: 'User is already an admin for this project.' });
+        }
+
+        project.admins.push(adminToAdd._id);
+        await project.save();
+
+        res.status(200).json({ message: 'Admin added successfully.', admins: project.admins });
+
+    } catch (error) {
+        console.error('Error adding admin:', error);
+        res.status(500).json({ message: 'Server error.' });
+    }
+};
+
+export const removeProjectAdmin = async (req, res) => {
+    try {
+        const { id, adminId } = req.params;
+        const project = await Project.findOne({ _id: id });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found.' });
+        }
+
+        if (project.ownerId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Only the project owner can remove admins.' });
+        }
+
+        if (project.ownerId.toString() === adminId) {
+            return res.status(400).json({ message: 'The project owner cannot be removed as an admin.' });
+        }
+
+        project.admins = project.admins.filter(a => a.toString() !== adminId);
+        await project.save();
+
+        res.status(200).json({ message: 'Admin removed successfully.', admins: project.admins });
+
+    } catch (error) {
+        console.error('Error removing admin:', error);
         res.status(500).json({ message: 'Server error.' });
     }
 };

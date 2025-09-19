@@ -28,7 +28,6 @@ const projectSchema = new mongoose.Schema({
     },
     description: {
         type: String,
-        required: true,
         trim: true
     },
     ownerId: {
@@ -37,6 +36,10 @@ const projectSchema = new mongoose.Schema({
         ref: 'User'
     },
     members: [{
+        type: String,
+        ref: 'User'
+    }],
+    admins: [{
         type: String,
         ref: 'User'
     }],
@@ -58,9 +61,11 @@ const projectSchema = new mongoose.Schema({
     },
     dueDate: {
         type: Date,
-        required: true,
         validate: {
-            validator: function(value) {
+            validator: function (value) {
+                if (!value) {
+                    return true;
+                }
                 return value > this.startDate;
             },
             message: 'Due date must be after start date'
@@ -87,6 +92,7 @@ projectSchema.pre('save', function (next) {
 // Add indexes for better query performance
 projectSchema.index({ ownerId: 1 });
 projectSchema.index({ members: 1 });
+projectSchema.index({ admins: 1 });
 projectSchema.index({ status: 1 });
 projectSchema.index({ priority: 1 });
 projectSchema.index({ dueDate: 1 });

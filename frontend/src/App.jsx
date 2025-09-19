@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Layout from './layouts/Layout';
 import { RouteProtect } from './middleware/RouteProtect';
 import Projects from './pages/Projects';
+import ProjectView from './pages/ProjectView';
 
 
 const App = () => {
@@ -17,6 +18,7 @@ const App = () => {
                         <Route path="/" element={<RouteProtect><Layout /></RouteProtect>}>
                                 <Route path="dashboard" element={<RouteProtect><Dashboard /></RouteProtect>} />
                                 <Route path="projects" element={<RouteProtect><Projects /></RouteProtect>} />
+                                <Route path="projects/:projectId" element={<RouteProtect><ProjectView /></RouteProtect>} />
                         </Route>
                 </Routes>
         )

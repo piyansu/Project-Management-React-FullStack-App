@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Plus,
     Search,
@@ -14,9 +15,6 @@ import {
     Grid3x3,
     List,
     ArrowUpDown,
-    Eye,
-    Edit,
-    Trash2,
     User,
     CalendarDays
 } from 'lucide-react';
@@ -36,8 +34,9 @@ const Projects = () => {
     const [sortBy, setSortBy] = useState('createdAt');
     const [sortOrder, setSortOrder] = useState('desc');
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
-    const [newModalOpen, setnewModalOpen] = useState(false);
-    const [needsRefresh, setNeedsRefresh] = useState(false); // 1. State to track if a refresh is needed
+    const [newModalOpen, setNewModalOpen] = useState(false);
+    const [needsRefresh, setNeedsRefresh] = useState(false);
+    const navigate = useNavigate();
 
     const fetchProjects = useCallback(async () => {
         setLoading(true);
@@ -69,7 +68,6 @@ const Projects = () => {
         fetchProjects();
     }, [fetchProjects]);
 
-    // Filter and sort projects (This useEffect will run automatically when `projects` state changes)
     useEffect(() => {
         let filtered = projects.filter(project => {
             const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -80,10 +78,8 @@ const Projects = () => {
             return matchesSearch && matchesStatus && matchesPriority;
         });
 
-        // Sort projects
         filtered.sort((a, b) => {
             let aValue, bValue;
-
             switch (sortBy) {
                 case 'title':
                     aValue = a.title.toLowerCase();
@@ -99,14 +95,15 @@ const Projects = () => {
                     bValue = priorityOrder[b.priority] || 0;
                     break;
                 case 'dueDate':
-                    aValue = new Date(a.dueDate);
-                    bValue = new Date(b.dueDate);
+                    aValue = a.dueDate ? new Date(a.dueDate) : 0;
+                    bValue = b.dueDate ? new Date(b.dueDate) : 0;
                     break;
                 default:
                     aValue = new Date(a.createdAt);
                     bValue = new Date(b.createdAt);
             }
-
+            if (!aValue) return 1;
+            if (!bValue) return -1;
             if (sortOrder === 'asc') {
                 return aValue > bValue ? 1 : -1;
             } else {
@@ -117,13 +114,16 @@ const Projects = () => {
         setFilteredProjects(filtered);
     }, [projects, searchTerm, statusFilter, priorityFilter, sortBy, sortOrder]);
 
-    // 2. New handler for closing the modal that checks if a refetch is needed
     const handleCloseModal = () => {
-        setnewModalOpen(false); // Close the modal
+        setNewModalOpen(false);
         if (needsRefresh) {
-            fetchProjects(); // If a refresh was flagged, fetch the data
-            setNeedsRefresh(false); // Reset the flag
+            fetchProjects();
+            setNeedsRefresh(false);
         }
+    };
+
+    const handleProjectClick = (projectId) => {
+        navigate(`/projects/${projectId}`);
     };
 
     const getStatusIcon = (status) => {
@@ -157,6 +157,7 @@ const Projects = () => {
     };
 
     const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
@@ -165,6 +166,7 @@ const Projects = () => {
     };
 
     const getDaysUntilDue = (dueDate) => {
+        if (!dueDate) return 'No due date';
         const today = new Date();
         const due = new Date(dueDate);
         const diffTime = due.getTime() - today.getTime();
@@ -206,7 +208,7 @@ const Projects = () => {
                     <p className="text-gray-600 mt-1">Manage and track all your projects</p>
                 </div>
                 <button
-                    onClick={() => setnewModalOpen(true)}
+                    onClick={() => setNewModalOpen(true)}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors duration-200 cursor-pointer">
                     <Plus className="w-4 h-4" />
                     <span>New Project</span>
@@ -326,13 +328,13 @@ const Projects = () => {
                         <div className="flex border border-gray-300 rounded-lg">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-2 ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'} transition-colors duration-200`}
+                                className={`p-2 cursor-pointer ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'} transition-colors duration-200`}
                             >
                                 <Grid3x3 className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`p-2 ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'} transition-colors duration-200`}
+                                className={`p-2 cursor-pointer ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'} transition-colors duration-200`}
                             >
                                 <List className="w-4 h-4" />
                             </button>
@@ -352,7 +354,7 @@ const Projects = () => {
                             : "Try adjusting your search or filter criteria"
                         }
                     </p>
-                    <button onClick={() => setnewModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center space-x-2 mx-auto transition-colors duration-200 cursor-pointer">
+                    <button onClick={() => setNewModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center space-x-2 mx-auto transition-colors duration-200 cursor-pointer">
                         <Plus className="w-4 h-4" />
                         <span>Create Project</span>
                     </button>
@@ -365,74 +367,73 @@ const Projects = () => {
                             {filteredProjects.map((project) => (
                                 <div
                                     key={project._id}
-                                    className="group bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
+                                    onClick={() => handleProjectClick(project._id)}
+                                    className="group bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col hover:border-blue-300 cursor-pointer transform hover:scale-100"
                                 >
-
-                                    <div className="p-6">
-                                        {/* Title and Menu */}
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="flex-1 pr-2">
-                                                <h3 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-700 transition-colors">
-                                                    {project.title}
-                                                </h3>
-                                                <p className="text-gray-600 text-sm line-clamp-3 leading-relaxed">
-                                                    {project.description}
-                                                </p>
-                                            </div>
+                                    {/* Header Section */}
+                                    <div className="p-6 border-b border-gray-100">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <h3 className="text-xl font-bold text-gray-900 line-clamp-2 group-hover:text-blue-700 transition-colors leading-tight">
+                                                {project.title}
+                                            </h3>
                                         </div>
 
-                                        {/* Status and Priority Row */}
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>
+                                        {/* Description Section */}
+                                        <div>
+                                            <p className="text-gray-700 text-sm leading-relaxed line-clamp-3 min-h-[60px]">
+                                                {project.description || "No description provided for this project."}
+                                            </p>
+                                        </div>
+
+                                        {/* Status and Priority Badges */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${getStatusColor(project.status)}`}>
                                                 {getStatusIcon(project.status)}
                                                 <span className="capitalize">{project.status}</span>
                                             </div>
-                                            <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${getPriorityColor(project.priority)}`}>
+                                            <div className={`px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${getPriorityColor(project.priority)}`}>
                                                 {project.priority}
                                             </div>
                                         </div>
+                                    </div>
 
-                                        {/* Due Date Section */}
-                                        <div className="mb-4 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
-                                            <div className="flex items-center space-x-2 text-sm">
+                                    {/* Content Section */}
+                                    <div className="p-6 flex-1 flex flex-col">
+                                        {/* Due Date Card */}
+                                        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                                            <div className="flex items-center space-x-2 text-sm mb-1">
                                                 <CalendarDays className="w-4 h-4 text-blue-600" />
-                                                <span className="font-medium text-gray-900">Due: {formatDate(project.dueDate)}</span>
+                                                <span className="font-semibold text-blue-900">Due: {formatDate(project.dueDate)}</span>
                                             </div>
-                                            <div className="flex items-center space-x-2 text-xs text-gray-600 mt-1">
-                                                <Clock className="w-3 h-3" />
-                                                <span>{getDaysUntilDue(project.dueDate)}</span>
+                                            <div className="flex items-center space-x-2 text-xs">
+                                                <Clock className="w-3 h-3 text-blue-500" />
+                                                <span className={`font-medium ${getDaysUntilDue(project.dueDate).includes('overdue')
+                                                        ? 'text-red-600'
+                                                        : getDaysUntilDue(project.dueDate).includes('today') || getDaysUntilDue(project.dueDate).includes('tomorrow')
+                                                            ? 'text-orange-600'
+                                                            : 'text-blue-700'
+                                                    }`}>
+                                                    {getDaysUntilDue(project.dueDate)}
+                                                </span>
                                             </div>
                                         </div>
 
-                                        {/* Team Members */}
-                                        <div className="flex items-center space-x-2 text-sm text-gray-600 mb-4 p-2 bg-gray-50 rounded-lg">
-                                            <Users className="w-4 h-4 text-gray-500" />
-                                            <span className="font-medium">{project.members.length}</span>
-                                            <span>member{project.members.length !== 1 ? 's' : ''}</span>
-                                            <span className='ml-auto cursor-pointer text-blue-600 text-sm font-medium 
-             hover:text-blue-800 hover:underline transition-colors duration-200'>+ Add</span>
+                                        {/* Members Section */}
+                                        <div className="mb-6 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-2 text-sm text-gray-700">
+                                                    <Users className="w-4 h-4 text-gray-500" />
+                                                    <span className="font-medium">{project.members.length}</span>
+                                                    <span>member{project.members.length !== 1 ? 's' : ''}</span>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        {/* Action Buttons */}
-                                        <div className="flex space-x-2 pt-4 border-t border-gray-100">
-                                            <button className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:scale-105 cursor-pointer">
-                                                <Eye className="w-4 h-4" />
-                                                <span>View</span>
-                                            </button>
-                                            {project.members.includes(user.id) && <>
-                                                <button className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 shadow-sm cursor-pointer">
-                                                    <Edit className="w-4 h-4" />
-                                                    <span>Edit</span>
-                                                </button>
-                                                <button
-                                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 
-             text-sm font-medium text-red-600 bg-red-100 rounded-lg transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white hover:scale-105 active:scale-95 cursor-pointer"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                    <span>Delete</span>
-                                                </button>
-
-                                            </>}
+                                        {/* Click to view indicator */}
+                                        <div className="mt-auto">
+                                            <div className="text-center p-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                Click to view project details
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -450,15 +451,18 @@ const Projects = () => {
                                             <th className="text-left py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
                                             <th className="text-left py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Due Date</th>
                                             <th className="text-left py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Members</th>
-                                            <th className="text-left py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                         {filteredProjects.map((project) => (
-                                            <tr key={project._id} className="hover:bg-gray-50">
+                                            <tr 
+                                                key={project._id} 
+                                                onClick={() => handleProjectClick(project._id)}
+                                                className="hover:bg-gray-50 cursor-pointer transition-colors duration-200"
+                                            >
                                                 <td className="py-4 px-6">
                                                     <div>
-                                                        <h4 className="text-sm font-medium text-gray-900">{project.title}</h4>
+                                                        <h4 className="text-sm font-medium text-gray-900 hover:text-blue-700 transition-colors">{project.title}</h4>
                                                         <p className="text-sm text-gray-600 line-clamp-2">{project.description}</p>
                                                     </div>
                                                 </td>
@@ -481,19 +485,6 @@ const Projects = () => {
                                                     <div className="flex items-center space-x-1 text-sm text-gray-600">
                                                         <Users className="w-4 h-4" />
                                                         <span>{project.members.length}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-4 px-6">
-                                                    <div className="flex items-center space-x-2">
-                                                        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-                                                            <Eye className="w-4 h-4" />
-                                                        </button>
-                                                        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-                                                            <Edit className="w-4 h-4" />
-                                                        </button>
-                                                        <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200">
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>

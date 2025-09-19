@@ -90,7 +90,7 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
             }
 
             setIsSuccess(true);
-
+            setTimeout(() => window.location.reload(), 1500);
             if (onProjectCreated) {
                 onProjectCreated();
             }
