@@ -138,12 +138,10 @@ export const addProjectMember = async (req, res) => {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        // MODIFIED: Allow owner or admins to add members
-        const isOwner = project.ownerId.toString() === req.user._id.toString();
         const isAdmin = project.admins.includes(req.user._id.toString());
 
-        if (!isOwner && !isAdmin) {
-            return res.status(403).json({ message: 'Only the project owner or admins can add members.' });
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Only admins can add members.' });
         }
 
         const memberToAdd = await User.findOne({ email });
@@ -175,11 +173,10 @@ export const removeProjectMember = async (req, res) => {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        const isOwner = project.ownerId.toString() === req.user._id.toString();
         const isAdmin = project.admins.includes(req.user._id.toString());
 
-        if (!isOwner && !isAdmin) {
-            return res.status(403).json({ message: 'Only the project owner or admins can remove members.' });
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Only admins can remove members.' });
         }
 
         if (project.ownerId.toString() === memberId) {
@@ -201,20 +198,22 @@ export const removeProjectMember = async (req, res) => {
 
 export const addProjectAdmin = async (req, res) => {
     try {
-        const { email, userId } = req.body;
+        const { email } = req.body;
         const project = await Project.findOne({ _id: req.params.id });
 
         if (!project) {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        if (project.ownerId.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Only the project owner can add admins.' });
+        const isAdmin = project.admins.includes(req.user._id.toString());
+
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Only admins can add admins.' });
         }
 
-        const adminToAdd = await User.findOne({ email, _id: userId });
+        const adminToAdd = await User.findOne({ email });
         if (!adminToAdd) {
-            return res.status(404).json({ message: `User with email ${email} and id ${userId} not found.` });
+            return res.status(404).json({ message: `User with email ${email} not found.` });
         }
 
         if (!project.members.includes(adminToAdd._id.toString())) {
@@ -245,8 +244,10 @@ export const removeProjectAdmin = async (req, res) => {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        if (project.ownerId.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Only the project owner can remove admins.' });
+        const isAdmin = project.admins.includes(req.user._id.toString());
+
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Only admins can remove admins.' });
         }
 
         if (project.ownerId.toString() === adminId) {

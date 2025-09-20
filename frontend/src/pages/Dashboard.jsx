@@ -254,6 +254,20 @@ const Dashboard = () => {
                                                         <span>{formatDate(task.dueDate)}</span>
                                                     </div>
                                                 </div>
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="flex-1">
+                                                        <div className="flex justify-between text-sm mb-1">
+                                                            <span className="text-gray-600">Progress</span>
+                                                            <span className="text-gray-900 font-medium">{task.progress}%</span>
+                                                        </div>
+                                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                                            <div
+                                                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                                                style={{ width: `${task.progress}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                             <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                                                 <MoreHorizontal className="w-4 h-4 text-gray-600" />
