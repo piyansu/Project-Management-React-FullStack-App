@@ -16,7 +16,8 @@ import {
     List,
     ArrowUpDown,
     User,
-    CalendarDays
+    CalendarDays,
+    Building2
 } from 'lucide-react';
 
 import NewProjectModal from '../modals/NewProjectModal';
@@ -154,6 +155,42 @@ const Projects = () => {
             case 'Low': return 'text-green-600 bg-green-50 border-green-200';
             default: return 'text-gray-600 bg-gray-50 border-gray-200';
         }
+    };
+
+    // Generate a project logo based on the project title
+    const getProjectLogo = (title) => {
+        if (!title) return 'P';
+        // Take first two letters of the title, or first letter of first two words
+        const words = title.trim().split(' ');
+        if (words.length >= 2) {
+            return (words[0][0] + words[1][0]).toUpperCase();
+        }
+        return title.substring(0, 2).toUpperCase();
+    };
+
+    // Generate a color for the logo based on the project title
+    const getLogoColor = (title) => {
+        const colors = [
+            'bg-blue-500',
+            'bg-green-500',
+            'bg-purple-500',
+            'bg-red-500',
+            'bg-yellow-500',
+            'bg-indigo-500',
+            'bg-pink-500',
+            'bg-teal-500',
+            'bg-orange-500',
+            'bg-cyan-500'
+        ];
+        
+        if (!title) return colors[0];
+        
+        // Generate a consistent color based on title
+        let hash = 0;
+        for (let i = 0; i < title.length; i++) {
+            hash = title.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return colors[Math.abs(hash) % colors.length];
     };
 
     const formatDate = (dateString) => {
@@ -368,21 +405,33 @@ const Projects = () => {
                                 <div
                                     key={project._id}
                                     onClick={() => handleProjectClick(project._id)}
-                                    className="group bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col hover:border-blue-300 cursor-pointer transform hover:scale-100"
+                                    className="group bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col hover:border-blue-300 cursor-pointer transform hover:scale-105" // Added hover:scale-105
                                 >
                                     {/* Header Section */}
                                     <div className="p-6 border-b border-gray-100">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <h3 className="text-xl font-bold text-gray-900 line-clamp-2 group-hover:text-blue-700 transition-colors leading-tight">
-                                                {project.title}
-                                            </h3>
-                                        </div>
-
-                                        {/* Description Section */}
-                                        <div>
-                                            <p className="text-gray-700 text-sm leading-relaxed line-clamp-3 min-h-[60px]">
-                                                {project.description || "No description provided for this project."}
-                                            </p>
+                                        <div className="flex items-start gap-4 mb-4">
+                                            {/* Project Logo */}
+                                            {project.logo ? (
+                                                <img
+                                                    src={project.logo}
+                                                    alt={`${project.title} logo`}
+                                                    className="w-16 h-16 rounded-lg object-cover border border-gray-200 shadow-sm flex-shrink-0"
+                                                />
+                                            ) : (
+                                                <div className={`w-16 h-16 rounded-lg ${getLogoColor(project.title)} text-white flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0`}>
+                                                    {getProjectLogo(project.title)}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Title and Description */}
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors leading-tight mb-2">
+                                                    {project.title}
+                                                </h3>
+                                                <p className="text-gray-700 text-sm leading-relaxed truncate">
+                                                    {project.description || "No description provided for this project."}
+                                                </p>
+                                            </div>
                                         </div>
 
                                         {/* Status and Priority Badges */}
@@ -428,13 +477,6 @@ const Projects = () => {
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* Click to view indicator */}
-                                        <div className="mt-auto">
-                                            <div className="text-center p-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                Click to view project details
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -461,9 +503,15 @@ const Projects = () => {
                                                 className="hover:bg-gray-50 cursor-pointer transition-colors duration-200"
                                             >
                                                 <td className="py-4 px-6">
-                                                    <div>
-                                                        <h4 className="text-sm font-medium text-gray-900 hover:text-blue-700 transition-colors">{project.title}</h4>
-                                                        <p className="text-sm text-gray-600 line-clamp-2">{project.description}</p>
+                                                    <div className="flex items-center gap-3">
+                                                        {/* Project Logo in List View */}
+                                                        <div className={`w-8 h-8 rounded-lg ${getLogoColor(project.title)} text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0`}>
+                                                            {getProjectLogo(project.title)}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <h4 className="text-sm font-medium text-gray-900 hover:text-blue-700 transition-colors">{project.title}</h4>
+                                                            <p className="text-sm text-gray-600 truncate">{project.description}</p>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="py-4 px-6">

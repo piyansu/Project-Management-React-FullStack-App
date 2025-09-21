@@ -11,6 +11,7 @@ import {
     removeProjectAdmin
 } from '../controllers/ProjectController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import upload from '../config/cloudinary.js';
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.use(protect);
 
 
 router.route('/')
-    .post(createProject)
+    .post(upload.single('logo'), createProject)
     .get(getUserProjects);
 
 

@@ -3,7 +3,8 @@ import {
     Plus,
     CheckCircle,
     AlertCircle,
-    X
+    X,
+    UploadCloud // Icon for the upload area
 } from 'lucide-react';
 
 const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
@@ -15,23 +16,25 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
         startDate: '',
         dueDate: ''
     });
+    // State for the logo file and its preview URL
+    const [logoFile, setLogoFile] = useState(null);
+    const [logoPreview, setLogoPreview] = useState(null);
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
-    const [isSuccess, setIsSuccess] = useState(false); // State to track successful submission
+    const [isSuccess, setIsSuccess] = useState(false);
 
     // Effect to auto-close the modal after success message is shown
     useEffect(() => {
         if (isSuccess) {
             const timer = setTimeout(() => {
-                onClose(); // Close the modal
-            }, 2000); // Wait for 2 seconds
-
-            // Cleanup the timer if the component unmounts
+                onClose();
+            }, 2000);
             return () => clearTimeout(timer);
         }
     }, [isSuccess, onClose]);
 
-    // Reset state when modal is closed to ensure it's fresh when reopened
+    // Reset all state when the modal closes to ensure it's fresh when reopened
     useEffect(() => {
         if (!isOpen) {
             setProjectData({
@@ -42,6 +45,8 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
                 startDate: '',
                 dueDate: ''
             });
+            setLogoFile(null);
+            setLogoPreview(null); // Clear the preview
             setError(null);
             setIsSubmitting(false);
             setIsSuccess(false);
@@ -56,37 +61,56 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
         }));
     };
 
+    // Handler for the file input
+    const handleLogoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setLogoFile(file);
+            setLogoPreview(URL.createObjectURL(file));
+        }
+    };
+
+    // We must now use FormData to send files and text together
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
         setError(null);
 
-        // Basic validation
         if (!projectData.title || !projectData.startDate) {
             setError("Please fill in all required fields.");
             setIsSubmitting(false);
             return;
         }
 
-        const payload = {
-            ...projectData,
-            startDate: new Date(projectData.startDate).toISOString(),
-            dueDate: projectData.dueDate ? new Date(projectData.dueDate).toISOString() : null
+        // Create a FormData object
+        const formData = new FormData();
 
-        };
+        // Append all text fields
+        formData.append('title', projectData.title);
+        formData.append('description', projectData.description);
+        formData.append('status', projectData.status);
+        formData.append('priority', projectData.priority);
+        formData.append('startDate', new Date(projectData.startDate).toISOString());
+        if (projectData.dueDate) {
+            formData.append('dueDate', new Date(projectData.dueDate).toISOString());
+        }
+        
+        // Append the logo file if one was selected
+        if (logoFile) {
+            formData.append('logo', logoFile); // 'logo' must match the backend middleware
+        }
 
         try {
             const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/projects/`, {
                 method: 'POST',
                 credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
+                // DO NOT set a Content-Type header; the browser sets it automatically for FormData
+                body: formData // Send the FormData object
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errData = await response.json();
+                throw new Error(errData.message || `HTTP error! status: ${response.status}`);
             }
 
             setIsSuccess(true);
@@ -96,7 +120,7 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
             }
 
         } catch (error) {
-            setError('Failed to create project. Please try again.');
+            setError(error.message || 'Failed to create project. Please try again.');
             console.error('There was a problem with the fetch operation:', error);
         } finally {
             setIsSubmitting(false);
@@ -110,7 +134,7 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                onClick={!isSuccess ? onClose : undefined} // Prevent closing on backdrop click during success animation
+                onClick={!isSuccess ? onClose : undefined}
             ></div>
 
             {/* Modal Container */}
@@ -177,6 +201,28 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
                                         placeholder="Briefly describe the project..."
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
                                     />
+                                </div>
+                                
+                                {/* New Project Logo Input */}
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                        Project Logo (Optional)
+                                    </label>
+                                    <div className="mt-2 flex items-center gap-4">
+                                        {logoPreview ? (
+                                            <img src={logoPreview} alt="Logo Preview" className="w-16 h-16 rounded-lg object-cover" />
+                                        ) : (
+                                            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                                                <UploadCloud className="w-6 h-6 text-gray-400" />
+                                            </div>
+                                        )}
+                                        <label htmlFor="logo-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                            <span>{logoFile ? "Change file" : "Upload a file"}</span>
+                                            <input id="logo-upload" name="logo" type="file" className="sr-only" onChange={handleLogoChange} accept="image/png, image/jpeg" />
+                                        </label>
+                                        {logoFile && <button type="button" onClick={() => { setLogoFile(null); setLogoPreview(null); }} className="text-sm text-red-600 hover:text-red-800">Remove</button>}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 2MB.</p>
                                 </div>
 
                                 {/* Status and Priority Row */}

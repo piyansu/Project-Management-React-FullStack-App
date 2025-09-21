@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from "react-router-dom";
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from "react-router-dom";
 import {
-    Calendar, Users, User, Clock, AlertCircle, CheckCircle2, Pause, XCircle, FileText, Briefcase,
-    MoreVertical, ArrowUpCircle, ArrowDownCircle, Crown, Shield, UserCheck
+    Calendar, Users, Clock, AlertCircle, CheckCircle2, Pause, XCircle, FileText, Briefcase,
+    MoreVertical, ArrowUpCircle, ArrowDownCircle, Crown, Shield, UserCheck, Trash2, X, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -13,8 +13,12 @@ const ProjectView = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('info');
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState(null);
 
     const { projectId } = useParams();
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchProject = async () => {
@@ -43,6 +47,30 @@ const ProjectView = () => {
 
         fetchProject();
     }, [projectId]);
+
+    const handleDeleteProject = async () => {
+        setIsDeleting(true);
+        setDeleteError(null);
+        try {
+            const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/projects/${projectId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to delete the project.');
+            }
+
+            setIsDeleteModalOpen(false);
+            navigate('/projects'); // Navigate to the projects list after successful deletion
+
+        } catch (err) {
+            setDeleteError(err.message);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     // --- Helper Functions ---
     const getStatusIcon = (status) => {
@@ -125,6 +153,234 @@ const ProjectView = () => {
         );
     }
 
+    // --- Modal Component ---
+    const DeleteProjectModal = ({ isOpen, onClose, onConfirm, projectName, isDeleting, error }) => {
+        const [inputValue, setInputValue] = useState('');
+        const modalRef = useRef(null);
+
+        if (!isOpen) return null;
+
+        // Creates the required confirmation text, e.g., "My Awesome Project" -> "delete-my-awesome-project"
+        const requiredConfirmationText = `delete-${projectName?.toLowerCase().replace(/\s+/g, '-') || 'project'}`;
+        const isConfirmationMatch = inputValue === requiredConfirmationText;
+
+        // Effect to handle closing the modal with the 'Escape' key
+        useEffect(() => {
+            const handleEsc = (event) => {
+                if (event.key === 'Escape' && !isDeleting) {
+                    onClose();
+                }
+            };
+            window.addEventListener('keydown', handleEsc);
+            return () => window.removeEventListener('keydown', handleEsc);
+        }, [onClose, isDeleting]);
+
+        // Effect to handle closing the modal by clicking outside of it
+        useEffect(() => {
+            const handleClickOutside = (event) => {
+                if (modalRef.current && !modalRef.current.contains(event.target) && !isDeleting) {
+                    onClose();
+                }
+            };
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }, [onClose, isDeleting]);
+
+        // Reset input value when the modal is reopened for a new project
+        useEffect(() => {
+            if (isOpen) {
+                setInputValue('');
+            }
+        }, [isOpen, projectName]);
+
+        // Prevent body scroll when modal is open
+        useEffect(() => {
+            if (isOpen) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = 'unset';
+            }
+            return () => {
+                document.body.style.overflow = 'unset';
+            };
+        }, [isOpen]);
+
+        /**
+         * Handles the confirmation click.
+         * It calls the async onConfirm prop and reloads the page on success.
+         */
+        const handleConfirmDelete = async () => {
+            if (!isConfirmationMatch || isDeleting) return;
+
+            try {
+                // Await the onConfirm promise from the parent component
+                await onConfirm();
+
+                // On successful deletion, reload the page
+                window.location.reload();
+            } catch (e) {
+                // Errors are expected to be handled by the parent component,
+                // which passes the `error` prop.
+                console.error("Delete action failed:", e);
+            }
+        };
+
+        const handleInputChange = (e) => {
+            setInputValue(e.target.value);
+        };
+
+        const handleKeyPress = (e) => {
+            if (e.key === 'Enter' && isConfirmationMatch && !isDeleting) {
+                handleConfirmDelete();
+            }
+        };
+
+        return (
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+                {/* Backdrop with blur effect */}
+                <div className="fixed inset-0 bg-gray-900/75 backdrop-blur-md transition-all duration-300 ease-out" />
+
+                {/* Modal container */}
+                <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                    <div
+                        ref={modalRef}
+                        className="relative transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300 ease-out sm:my-8 sm:w-full sm:max-w-lg border border-gray-200"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="delete-modal-title"
+                    >
+                        {/* Close button */}
+                        <button
+                            onClick={onClose}
+                            disabled={isDeleting}
+                            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded-full p-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+
+                        {/* Header */}
+                        <div className="bg-white px-6 pt-6 pb-4">
+                            <div className="flex items-center">
+                                <div className="mx-auto flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-red-50 border-2 border-red-100">
+                                    <AlertTriangle className="h-7 w-7 text-red-600" />
+                                </div>
+                            </div>
+                            <div className="mt-4 text-center">
+                                <h3
+                                    className="text-2xl font-bold leading-6 text-gray-900"
+                                    id="delete-modal-title"
+                                >
+                                    Delete Project
+                                </h3>
+                                <div className="mt-3">
+                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                        You are about to permanently delete{' '}
+                                        <span className="font-semibold text-gray-900 bg-gray-100 px-2 py-1 rounded">
+                                            {projectName}
+                                        </span>
+                                        . This action cannot be undone and all associated data will be lost forever.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Body */}
+                        <div className="bg-gray-50 px-6 py-5">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        To confirm deletion, type the following text exactly:
+                                    </label>
+                                    <div className="bg-white border border-gray-300 rounded-lg p-4 mb-3 font-mono text-center shadow-inner">
+                                        <span className="text-red-600 font-semibold select-all text-base tracking-wide">
+                                            {requiredConfirmationText}
+                                        </span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={inputValue}
+                                            onChange={handleInputChange}
+                                            onKeyPress={handleKeyPress}
+                                            className={`block w-full px-4 py-3 border-2 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-200 font-mono text-base ${inputValue && !isConfirmationMatch
+                                                ? 'border-red-300 bg-red-50 focus:border-red-500'
+                                                : inputValue && isConfirmationMatch
+                                                    ? 'border-green-300 bg-green-50 focus:border-green-500'
+                                                    : 'border-gray-300 bg-white focus:border-red-500'
+                                                }`}
+                                            placeholder="Type the confirmation text..."
+                                            autoFocus
+                                            disabled={isDeleting}
+                                        />
+                                        {inputValue && (
+                                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                                {isConfirmationMatch ? (
+                                                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                        <div className="flex">
+                                            <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0" />
+                                            <div className="ml-3">
+                                                <h3 className="text-sm font-semibold text-red-800">Error</h3>
+                                                <div className="text-sm text-red-700 mt-1">{error}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-gray-50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                disabled={isDeleting}
+                                className="mt-3 sm:mt-0 inline-flex w-full justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-base font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:w-auto sm:text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDelete}
+                                disabled={!isConfirmationMatch || isDeleting}
+                                className="inline-flex w-full justify-center items-center rounded-lg border border-transparent bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:w-auto sm:text-sm disabled:bg-red-300 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                            >
+                                {isDeleting ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    'Delete Project'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     // --- Tab Content Components ---
 
     const InfoTab = () => (
@@ -178,12 +434,43 @@ const ProjectView = () => {
                     </ul>
                 </div>
             </div>
+            {/* Delete Section */}
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-rose-900 mb-2">Delete Project</h3>
+                <p className="text-sm text-rose-800 mb-4">
+                    Once you delete this project, there is no going back. Please be certain.
+                </p>
+                <button
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="inline-flex items-center justify-center px-4 py-2 bg-rose-600 text-white font-semibold rounded-lg shadow-sm hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 transition-colors cursor-pointer"
+                >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete this Project
+                </button>
+            </div>
         </div>
     );
 
-    const UserAvatar = ({ fullName }) => {
-        if (!fullName) return null;
-        const initials = fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    // ✨ MODIFIED COMPONENT
+    const UserAvatar = ({ user }) => {
+        // Handle case where user data is not yet loaded
+        if (!user || !user.fullName) {
+            return <div className="w-12 h-12 rounded-full flex-shrink-0 bg-slate-200 animate-pulse"></div>;
+        }
+
+        // If a profile photo exists, display it
+        if (user.profilePhoto) {
+            return (
+                <img
+                    src={user.profilePhoto}
+                    alt={user.fullName}
+                    className="w-12 h-12 rounded-full flex-shrink-0 object-cover border-2 border-white shadow-sm"
+                />
+            );
+        }
+
+        // Fallback to initials if no profile photo
+        const initials = user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
         const getHashCode = (str) => {
             let hash = 0;
             for (let i = 0; i < str.length; i++) {
@@ -192,7 +479,8 @@ const ProjectView = () => {
             return hash;
         };
         const colors = ['bg-blue-200 text-blue-800', 'bg-emerald-200 text-emerald-800', 'bg-amber-200 text-amber-800', 'bg-rose-200 text-rose-800', 'bg-indigo-200 text-indigo-800', 'bg-purple-200 text-purple-800', 'bg-pink-200 text-pink-800'];
-        const color = colors[Math.abs(getHashCode(fullName)) % colors.length];
+        const color = colors[Math.abs(getHashCode(user.fullName)) % colors.length];
+
         return (
             <div className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center ${color}`}>
                 <span className="text-lg font-bold">{initials}</span>
@@ -242,7 +530,7 @@ const ProjectView = () => {
                         <button
                             onClick={handleAction}
                             disabled={isSubmitting}
-                            className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg"
+                            className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg cursor-pointer"
                         >
                             {isSubmitting
                                 ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-r-2 border-slate-600 mr-3"></div>
@@ -256,11 +544,12 @@ const ProjectView = () => {
         );
     };
 
+    // ✨ MODIFIED COMPONENT
     const UserCard = ({ user, loading, error, role, isOwner, children }) => {
         if (loading) {
             return (
                 <div className="bg-white p-4 rounded-lg border border-slate-200 flex items-center space-x-4 animate-pulse">
-                    <div className="w-12 h-12 rounded-full bg-slate-200"></div>
+                    <div className="w-6 h-12 rounded-full bg-slate-200"></div>
                     <div className="flex-1 space-y-2">
                         <div className="h-4 bg-slate-200 rounded w-3/4"></div>
                         <div className="h-3 bg-slate-200 rounded w-1/2"></div>
@@ -282,28 +571,17 @@ const ProjectView = () => {
             );
         }
 
-        const getRoleInfo = () => {
-            if (isOwner) return { icon: Crown, color: 'text-amber-600', label: 'Owner' };
-            if (role === 'admin') return { icon: Shield, color: 'text-purple-600', label: 'Admin' };
-            return { icon: UserCheck, color: 'text-slate-600', label: 'Member' };
-        };
-
-        const { icon: RoleIcon, color: roleColor, label: roleLabel } = getRoleInfo();
-
         return (
-            <div className="group bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200">
+            <div className="group bg-white p-5 pt-5 pb-5 pr-2 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 max-w-xs">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4 min-w-0">
-                        <UserAvatar fullName={user.fullName} />
+                        {/* The call to UserAvatar is now updated */}
+                        <UserAvatar user={user} />
                         <div className="overflow-hidden flex-1">
                             <div className="flex items-center space-x-2 mb-1">
                                 <p className="text-base font-semibold text-slate-900 truncate" title={user.fullName}>
                                     {user.fullName}
                                 </p>
-                                <div className="flex items-center space-x-1">
-                                    <RoleIcon className={`w-4 h-4 ${roleColor}`} />
-                                    <span className={`text-xs font-medium ${roleColor}`}>{roleLabel}</span>
-                                </div>
                             </div>
                             <p className="text-sm text-slate-500 truncate" title={user.email}>{user.email}</p>
                         </div>
@@ -425,23 +703,6 @@ const ProjectView = () => {
 
         return (
             <div className="space-y-8">
-                {/* Team Overview Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                            <h2 className="text-lg font-bold text-slate-900 mb-1">Team Members</h2>
-                            <p className="text-sm text-slate-600">
-                                Manage project access and permissions for {totalMembers} team member{totalMembers !== 1 ? 's' : ''}
-                            </p>
-                        </div>
-                        <div className="bg-white rounded-lg p-2 shadow-sm border border-blue-200">
-                            <div className="text-center">
-                                <div className="text-xl font-bold text-blue-600">{totalMembers}</div>
-                                <div className="text-xs text-slate-600">Total Members</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 {/* Project Owner Section */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -449,13 +710,7 @@ const ProjectView = () => {
                         <div className="flex items-center space-x-3">
                             <Crown className="w-6 h-6 text-amber-600" />
                             <h3 className="text-lg font-semibold text-slate-900">Project Owner</h3>
-                            <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
-                                Full Access
-                            </span>
                         </div>
-                        <p className="text-sm text-slate-600 mt-1">
-                            Has complete control over the project and all team members
-                        </p>
                     </div>
                     <div className="p-6">
                         <div className="max-w-2xl">
@@ -481,14 +736,8 @@ const ProjectView = () => {
                                         ({filteredAdmins.length})
                                     </span>
                                 </h3>
-                                <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
-                                    Manage Members
-                                </span>
                             </div>
                         </div>
-                        <p className="text-sm text-slate-600 mt-1">
-                            Can manage project settings and promote/demote team members
-                        </p>
                     </div>
                     <div className="p-6">
                         {filteredAdmins.length > 0 ? (
@@ -542,13 +791,7 @@ const ProjectView = () => {
                                     ({filteredMembers.length})
                                 </span>
                             </h3>
-                            <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-full">
-                                View & Contribute
-                            </span>
                         </div>
-                        <p className="text-sm text-slate-600 mt-1">
-                            Can view project details and contribute to project tasks
-                        </p>
                     </div>
                     <div className="p-6">
                         {filteredMembers.length > 0 ? (
@@ -602,19 +845,63 @@ const ProjectView = () => {
         </div>
     );
 
+    const getProjectAvatarColor = (projectName) => {
+        if (!projectName) return 'bg-slate-200 text-slate-800';
+        const getHashCode = (str) => {
+            let hash = 0;
+            if (str.length === 0) return hash;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0; // Convert to 32bit integer
+            }
+            return hash;
+        };
+        const colors = [
+            'bg-blue-100 text-blue-800 border-blue-200',
+            'bg-emerald-100 text-emerald-800 border-emerald-200',
+            'bg-amber-100 text-amber-800 border-amber-200',
+            'bg-rose-100 text-rose-800 border-rose-200',
+            'bg-indigo-100 text-indigo-800 border-indigo-200',
+            'bg-purple-100 text-purple-800 border-purple-200',
+            'bg-pink-100 text-pink-800 border-pink-200'
+        ];
+        return colors[Math.abs(getHashCode(projectName)) % colors.length];
+    };
+
     // --- Main Component Render ---
     return (
         <div className="space-y-6 pb-10">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h1 className="text-3xl font-bold text-slate-900 mb-3">{project.title}</h1>
-                <div className="flex items-center space-x-3">
-                    <div className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-semibold border ${getStatusColor(project.status)}`}>
-                        {getStatusIcon(project.status)}
-                        <span className="ml-2">{project.status}</span>
-                    </div>
-                    <div className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-semibold border ${getPriorityColor(project.priority)}`}>
-                        <AlertCircle className="w-4 h-4 mr-2" />
-                        {project.priority} Priority
+                <div className="flex items-start space-x-5">
+                    {/* Project Avatar - UPDATED SECTION */}
+                    {project.logo ? (
+                        <img
+                            src={project.logo}
+                            alt={`${project.title} logo`}
+                            className="w-20 h-20 rounded-xl flex-shrink-0 object-cover border border-slate-200" // Increased size
+                        />
+                    ) : (
+                        <div className={`w-20 h-20 rounded-xl flex-shrink-0 flex items-center justify-center border ${getProjectAvatarColor(project.title)}`}>
+                            <span className="text-2xl font-bold">
+                                {project.title.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Project Info */}
+                    <div className="flex-1">
+                        <h1 className="text-3xl font-bold text-slate-900 mb-2">{project.title}</h1>
+                        <div className="flex items-center flex-wrap gap-2">
+                            <div className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold border ${getStatusColor(project.status)}`}>
+                                {getStatusIcon(project.status)}
+                                <span className="ml-2">{project.status}</span>
+                            </div>
+                            <div className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold border ${getPriorityColor(project.priority)}`}>
+                                <AlertCircle className="w-4 h-4 mr-2" />
+                                {project.priority} Priority
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -630,6 +917,18 @@ const ProjectView = () => {
                 {activeTab === 'members' && <MembersTab project={project} setProject={setProject} authUser={user} />}
                 {activeTab === 'works' && <WorksTab />}
             </div>
+
+            <DeleteProjectModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setDeleteError(null);
+                }}
+                onConfirm={handleDeleteProject}
+                projectName={project.title}
+                isDeleting={isDeleting}
+                error={deleteError}
+            />
         </div>
     );
 };

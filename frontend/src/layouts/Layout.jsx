@@ -52,7 +52,6 @@ const Layout = () => {
                     'Content-Type': 'application/json'
                 }
             });
-
             if (response.ok) {
                 const data = await response.json();
                 setProjects(data);
@@ -317,9 +316,17 @@ const Layout = () => {
                         <div className="relative" ref={profileRef}>
                             <button className="flex items-center space-x-2 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100/80 transition-all duration-200 cursor-pointer group">
                                 <div className="relative">
-                                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-200">
-                                        <span className="text-white text-sm font-bold">{user.fullName.slice(0, 1).toUpperCase()}</span>
-                                    </div>
+                                    {user.profilePhoto ? (
+                                        <img 
+                                            src={user.profilePhoto} 
+                                            alt="Profile" 
+                                            className="w-8 h-8 rounded-full object-cover shadow-md group-hover:shadow-lg transition-shadow duration-200"
+                                        />
+                                    ) : (
+                                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-200">
+                                            <span className="text-white text-sm font-bold">{user.fullName.slice(0, 1).toUpperCase()}</span>
+                                        </div>
+                                    )}
                                     <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
                                 </div>
                                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-all duration-200 ${
@@ -336,9 +343,17 @@ const Layout = () => {
                                     <div className="px-4 py-3 border-b border-gray-100">
                                         <div className="flex items-center space-x-3">
                                             <div className="relative">
-                                                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
-                                                    <User className="w-5 h-5 text-white" />
-                                                </div>
+                                                {user.profilePhoto ? (
+                                                    <img 
+                                                        src={user.profilePhoto} 
+                                                        alt="Profile" 
+                                                        className="w-10 h-10 rounded-full object-cover shadow-md"
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
+                                                        <User className="w-5 h-5 text-white" />
+                                                    </div>
+                                                )}
                                                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
                                             </div>
                                             <div>
@@ -350,10 +365,10 @@ const Layout = () => {
 
                                     {/* Enhanced Menu Items */}
                                     <div className="py-1">
-                                        <a href="/profile" className="flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50/80 transition-all duration-200 group">
+                                        <button onClick={() => navigate('/profile')} className="w-full flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50/80 transition-all duration-200 group cursor-pointer">
                                             <User className="w-4 h-4 text-gray-500 group-hover:text-blue-500 transition-colors duration-200" />
                                             <span className="text-sm font-medium">My Profile</span>
-                                        </a>
+                                        </button>
 
                                         <a href="/settings" className="flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50/80 transition-all duration-200 group">
                                             <Settings className="w-4 h-4 text-gray-500 group-hover:text-blue-500 transition-colors duration-200" />

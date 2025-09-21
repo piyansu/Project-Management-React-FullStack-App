@@ -16,6 +16,10 @@ const projectSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    logo: {
+        type: String,
+        default: null
+    },
     ownerId: {
         type: String,
         required: true,

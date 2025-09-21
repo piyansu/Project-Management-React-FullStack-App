@@ -2,20 +2,6 @@ import mongoose from "mongoose";
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 
-// Simple function to get IST formatted date
-function getISTDateTime() {
-    return new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-    });
-}
-
 const userSchema = new mongoose.Schema({
     _id: {
         type: String,
@@ -45,20 +31,30 @@ const userSchema = new mongoose.Schema({
         unique: true,
         sparse: true
     },
-    createdAt: {
+    profilePhoto: {
         type: String,
-        default: getISTDateTime,
+        default: ''
+    },
+    bio: {
+        type: String,
+        trim: true,
+        maxlength: 250,
+        default: 'I am ProjectMan'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now,
     },
     updatedAt: {
-        type: String,
-        default: getISTDateTime,
+        type: Date,
+        default: Date.now,
     }
 });
 
 // Update the updatedAt field on save
 userSchema.pre('save', async function (next) {
     if (!this.isNew) {
-        this.updatedAt = getISTDateTime();
+        this.updatedAt = Date.now();
     }
 
     // Hash password if modified

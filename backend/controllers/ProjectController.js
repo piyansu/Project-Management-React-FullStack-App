@@ -5,6 +5,7 @@ export const createProject = async (req, res) => {
     try {
         const { title, description, startDate, dueDate, priority, status, members } = req.body;
 
+        const logoUrl = req.file ? req.file.path : null;
         const ownerId = req.user._id;
 
         if (!title || !startDate) {
@@ -12,7 +13,6 @@ export const createProject = async (req, res) => {
         }
 
         const allMemberIds = [...new Set([ownerId.toString(), ...(members || [])])];
-
         const existingUsersCount = await User.countDocuments({ '_id': { $in: allMemberIds } });
 
         if (existingUsersCount < allMemberIds.length) {
@@ -22,6 +22,7 @@ export const createProject = async (req, res) => {
         const project = new Project({
             title,
             description: description || '',
+            logo: logoUrl,
             startDate,
             dueDate: dueDate || null,
             priority,
@@ -73,7 +74,6 @@ export const getProjectById = async (req, res) => {
         res.status(500).json({ message: 'Server error.' });
     }
 };
-
 
 export const updateProject = async (req, res) => {
     try {
