@@ -8,7 +8,9 @@ import {
     addProjectMember,
     removeProjectMember,
     addProjectAdmin,
-    removeProjectAdmin
+    removeProjectAdmin,
+    inviteProjectMember,
+    removeInvitedMember
 } from '../controllers/ProjectController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload from '../config/cloudinary.js';
@@ -36,5 +38,9 @@ router.delete('/:id/members/:memberId', removeProjectMember);
 router.post('/:id/admins', addProjectAdmin);
 
 router.delete('/:id/admins/:adminId', removeProjectAdmin);
+
+router.post('/:id/invite', inviteProjectMember);
+
+router.delete('/:id/invite/:invitedId', removeInvitedMember);
 
 export default router;

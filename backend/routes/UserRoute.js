@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser, loginUser, logoutUser, check, googleLogin, getUserById, updateUserProfile } from '../controllers/UserController.js';
+import { registerUser, loginUser, logoutUser, check, googleLogin, getUserById, updateUserProfile, getAllUsers } from '../controllers/UserController.js';
 import upload from '../config/cloudinary.js';
 
 const router = express.Router();
@@ -10,6 +10,7 @@ router.get('/logout', logoutUser);
 router.get('/profile', check);
 router.put('/profile', upload.single('profilePhoto'), updateUserProfile);
 router.post('/google-login', googleLogin);
+router.post('/', getAllUsers);
 router.get('/:userId', getUserById);
 
 export default router;

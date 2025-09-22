@@ -41,6 +41,13 @@ const userSchema = new mongoose.Schema({
         maxlength: 250,
         default: 'I am ProjectMan'
     },
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
+    lastSeen: {
+        type: Date
+    },
     createdAt: {
         type: Date,
         default: Date.now,

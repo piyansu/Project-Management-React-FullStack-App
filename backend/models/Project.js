@@ -33,6 +33,10 @@ const projectSchema = new mongoose.Schema({
         type: String,
         ref: 'User'
     }],
+    invited: [{
+        type: String,
+        ref: 'User'
+    }],
     status: {
         type: String,
         enum: ['Active', 'Completed', 'On Hold', 'Cancelled'],
@@ -83,6 +87,7 @@ projectSchema.pre('save', function (next) {
 projectSchema.index({ ownerId: 1 });
 projectSchema.index({ members: 1 });
 projectSchema.index({ admins: 1 });
+projectSchema.index({ invited: 1 }); 
 projectSchema.index({ status: 1 });
 projectSchema.index({ priority: 1 });
 projectSchema.index({ dueDate: 1 });

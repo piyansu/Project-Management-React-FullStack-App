@@ -138,12 +138,6 @@ export const addProjectMember = async (req, res) => {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        const isAdmin = project.admins.includes(req.user._id.toString());
-
-        if (!isAdmin) {
-            return res.status(403).json({ message: 'Only admins can add members.' });
-        }
-
         const memberToAdd = await User.findOne({ email });
         if (!memberToAdd) {
             return res.status(404).json({ message: `User with email ${email} not found.` });
@@ -160,6 +154,39 @@ export const addProjectMember = async (req, res) => {
 
     } catch (error) {
         console.error('Error adding member:', error);
+        res.status(500).json({ message: 'Server error.' });
+    }
+};
+
+export const addProjectAdmin = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const project = await Project.findOne({ _id: req.params.id });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found.' });
+        }
+
+        const adminToAdd = await User.findOne({ email });
+        if (!adminToAdd) {
+            return res.status(404).json({ message: `User with email ${email} not found.` });
+        }
+
+        if (!project.members.includes(adminToAdd._id.toString())) {
+            project.members.push(adminToAdd._id);
+        }
+
+        if (project.admins.includes(adminToAdd._id.toString())) {
+            return res.status(400).json({ message: 'User is already an admin for this project.' });
+        }
+
+        project.admins.push(adminToAdd._id);
+        await project.save();
+
+        res.status(200).json({ message: 'Admin added successfully.', admins: project.admins });
+
+    } catch (error) {
+        console.error('Error adding admin:', error);
         res.status(500).json({ message: 'Server error.' });
     }
 };
@@ -196,45 +223,6 @@ export const removeProjectMember = async (req, res) => {
     }
 };
 
-export const addProjectAdmin = async (req, res) => {
-    try {
-        const { email } = req.body;
-        const project = await Project.findOne({ _id: req.params.id });
-
-        if (!project) {
-            return res.status(404).json({ message: 'Project not found.' });
-        }
-
-        const isAdmin = project.admins.includes(req.user._id.toString());
-
-        if (!isAdmin) {
-            return res.status(403).json({ message: 'Only admins can add admins.' });
-        }
-
-        const adminToAdd = await User.findOne({ email });
-        if (!adminToAdd) {
-            return res.status(404).json({ message: `User with email ${email} not found.` });
-        }
-
-        if (!project.members.includes(adminToAdd._id.toString())) {
-            project.members.push(adminToAdd._id);
-        }
-
-        if (project.admins.includes(adminToAdd._id.toString())) {
-            return res.status(400).json({ message: 'User is already an admin for this project.' });
-        }
-
-        project.admins.push(adminToAdd._id);
-        await project.save();
-
-        res.status(200).json({ message: 'Admin added successfully.', admins: project.admins });
-
-    } catch (error) {
-        console.error('Error adding admin:', error);
-        res.status(500).json({ message: 'Server error.' });
-    }
-};
-
 export const removeProjectAdmin = async (req, res) => {
     try {
         const { id, adminId } = req.params;
@@ -255,12 +243,84 @@ export const removeProjectAdmin = async (req, res) => {
         }
 
         project.admins = project.admins.filter(a => a.toString() !== adminId);
+        project.members = project.members.filter(m => m.toString() !== adminId);
         await project.save();
 
-        res.status(200).json({ message: 'Admin removed successfully.', admins: project.admins });
+        res.status(200).json({ message: 'Admin removed successfully.', admins: project.admins, members: project.members });
 
     } catch (error) {
         console.error('Error removing admin:', error);
+        res.status(500).json({ message: 'Server error.' });
+    }
+};
+
+export const inviteProjectMember = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const project = await Project.findOne({ _id: req.params.id });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found.' });
+        }
+
+        const isAdmin = project.admins.includes(req.user._id.toString());
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Only admins can invite members.' });
+        }
+
+        const userToInvite = await User.findOne({ email });
+        if (!userToInvite) {
+            return res.status(404).json({ message: `User with email ${email} not found.` });
+        }
+
+        const userIdToInvite = userToInvite._id.toString();
+
+        if (project.members.includes(userIdToInvite)) {
+            return res.status(400).json({ message: 'User is already a member of this project.' });
+        }
+
+        if (project.invited.includes(userIdToInvite)) {
+            return res.status(400).json({ message: 'User has already been invited to this project.' });
+        }
+
+        project.invited.push(userIdToInvite);
+        await project.save();
+
+        res.status(200).json({ message: 'User invited successfully.', invited: project.invited });
+
+    } catch (error) {
+        console.error('Error inviting member:', error);
+        res.status(500).json({ message: 'Server error.' });
+    }
+};
+
+export const removeInvitedMember = async (req, res) => {
+    try {
+        const { id, invitedId } = req.params;
+        const project = await Project.findOne({ _id: id });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found.' });
+        }
+
+        const isAdmin = project.admins.includes(req.user._id.toString());
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Only admins can remove invited members.' });
+        }
+
+        const initialLength = project.invited.length;
+        project.invited = project.invited.filter(i => i.toString() !== invitedId);
+
+        if (initialLength === project.invited.length) {
+            return res.status(404).json({ message: 'Invited user not found in the invitation list.' });
+        }
+
+        await project.save();
+
+        res.status(200).json({ message: 'Invitation removed successfully.', project });
+
+    } catch (error) {
+        console.error('Error removing invitation:', error);
         res.status(500).json({ message: 'Server error.' });
     }
 };

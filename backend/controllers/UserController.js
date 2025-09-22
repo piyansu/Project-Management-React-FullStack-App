@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Project from "../models/Project.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from 'google-auth-library';
 
@@ -267,5 +268,58 @@ export const getUserById = async (req, res) => {
             return res.status(400).json({ message: "Invalid User ID format.", id: null });
         }
         res.status(500).json({ message: "Server error while fetching user details", id: null });
+    }
+};
+
+export const getAllUsers = async (req, res) => {
+    try {
+
+        const token = req.cookies?.token;
+        if (!token) {
+            return res.status(401).json({ message: "Not authenticated." });
+        }
+        jwt.verify(token, process.env.JWT_SECRET);
+        const { projectId } = req.body;
+
+        let query = {};
+
+        // If a projectId is provided, modify the query to filter out existing project members
+        if (projectId) {
+            const project = await Project.findById(projectId);
+
+            if (!project) {
+                return res.status(404).json({ message: "Project not found." });
+            }
+
+            // Combine owner, admins, members, and invited users to get a full list of users already associated with the project
+            const existingUserIds = [
+                project.ownerId,
+                ...project.admins,
+                ...project.members,
+                ...project.invited
+            ];
+
+            // Create a Set to automatically handle any duplicate IDs
+            const uniqueExistingUserIds = [...new Set(existingUserIds)];
+
+            // Update the query to find all users whose ID is "not in" the list of existing users
+            query = { _id: { $nin: uniqueExistingUserIds } };
+        }
+
+        // Find users based on the constructed query, selecting only the necessary fields
+        const users = await User.find(query).select('_id fullName profilePhoto email');
+
+        // Map the results to format them with 'id' instead of '_id'
+        const formattedUsers = users.map(user => ({
+            id: user._id,
+            fullName: user.fullName,
+            profilePhoto: user.profilePhoto,
+            email: user.email,
+        }));
+
+        res.status(200).json(formattedUsers);
+    } catch (error) {
+        console.error("Error fetching all users:", error);
+        res.status(500).json({ message: "Server error while fetching users" });
     }
 };
