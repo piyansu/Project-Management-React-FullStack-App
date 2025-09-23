@@ -12,6 +12,7 @@ import { RouteProtect } from './middleware/RouteProtect';
 import Projects from './pages/Projects';
 import ProjectView from './pages/ProjectView';
 import ProfilePage from './pages/ProfilePage';
+import SocialDashboard from './pages/SocialDashboard';
 
 const App = () => {
     // Correctly call the hook inside the component to get the user
@@ -29,6 +30,7 @@ const App = () => {
                     <Route path="projects" element={<RouteProtect><Projects /></RouteProtect>} />
                     <Route path="projects/:projectId" element={<RouteProtect><ProjectView /></RouteProtect>} />
                     <Route path="profile" element={<RouteProtect><ProfilePage /></RouteProtect>} />
+                    <Route path="coworkers" element={<RouteProtect><SocialDashboard /></RouteProtect>} />
                 </Route>
             </Routes>
         </SocketProvider>

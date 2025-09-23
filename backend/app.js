@@ -7,6 +7,7 @@ import User from './models/User.js';
 import connectDB from './config/db.js';
 import userRoutes from './routes/UserRoute.js';
 import projectRoutes from './routes/ProjectRoute.js';
+import SocialRoute from './routes/SocialRoute.js';
 
 const app = express();
 const server = http.createServer(app);   // <-- wrap express in http server
@@ -33,6 +34,7 @@ connectDB().then(() => {
 // ---------- Routes ----------
 app.use('/auth', userRoutes);
 app.use('/projects', projectRoutes);
+app.use('/social', SocialRoute);
 
 app.get('/', (req, res) => {
   res.send('Welcome to the Task Management App!');

@@ -10,7 +10,7 @@ router.get('/logout', logoutUser);
 router.get('/profile', check);
 router.put('/profile', upload.single('profilePhoto'), updateUserProfile);
 router.post('/google-login', googleLogin);
-router.post('/', getAllUsers);
+router.get('/', getAllUsers);
 router.get('/:userId', getUserById);
 
 export default router;

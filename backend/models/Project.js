@@ -45,7 +45,7 @@ const projectSchema = new mongoose.Schema({
     },
     priority: {
         type: String,
-        enum: ['Urgent', 'High', 'Medium', 'Low'],
+        enum: ['Urgent', 'High', 'Medium', 'low'],
         default: 'Medium',
         trim: true
     },
@@ -65,23 +65,7 @@ const projectSchema = new mongoose.Schema({
             message: 'Due date must be after start date'
         }
     },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now,
-    }
-});
-
-// Update the updatedAt field on save
-projectSchema.pre('save', function (next) {
-    if (!this.isNew) {
-        this.updatedAt = Date.now();
-    }
-    next();
-});
+}, { timestamps: true });
 
 // Add indexes for better query performance
 projectSchema.index({ ownerId: 1 });

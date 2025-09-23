@@ -45,7 +45,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
                         method: 'POST',
                         credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ projectId })
                     });
                     if (!response.ok) {
                         const errorData = await response.json();

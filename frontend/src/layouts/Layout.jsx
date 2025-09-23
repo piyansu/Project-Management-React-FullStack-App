@@ -40,6 +40,7 @@ const Layout = () => {
     const sidebarItems = [
         { icon: Home, label: 'Dashboard', href: '/dashboard' },
         { icon: FolderKanban, label: 'Projects', href: '/projects', hasDropdown: true },
+        {label: 'Coworkers', icon: Plus, href: '/coworkers' },
     ];
 
     // Fetch projects function

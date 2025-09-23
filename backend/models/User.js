@@ -47,24 +47,11 @@ const userSchema = new mongoose.Schema({
     },
     lastSeen: {
         type: Date
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now,
     }
-});
+}, { timestamps: true });
 
-// Update the updatedAt field on save
+// Hash password if modified
 userSchema.pre('save', async function (next) {
-    if (!this.isNew) {
-        this.updatedAt = Date.now();
-    }
-
-    // Hash password if modified
     if (!this.isModified('password')) return next();
     try {
         const salt = await bcrypt.genSalt(10);

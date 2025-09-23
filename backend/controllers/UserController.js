@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import Project from "../models/Project.js";
+import Social from '../models/Social.js';
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from 'google-auth-library';
 
@@ -16,16 +17,12 @@ export const googleLogin = async (req, res) => {
             return res.status(400).json({ message: "Authorization code is required." });
         }
 
-        // Exchange the authorization code for tokens
+        // Exchange code for tokens and verify
         const { tokens } = await oAuth2Client.getToken(code);
-        const { id_token } = tokens;
-
-        // Verify the ID token and get user info
         const ticket = await oAuth2Client.verifyIdToken({
-            idToken: id_token,
+            idToken: tokens.id_token,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
-
         const payload = ticket.getPayload();
 
         if (!payload) {
@@ -33,53 +30,48 @@ export const googleLogin = async (req, res) => {
         }
 
         const { sub: googleId, email, name: fullName, picture: profilePhoto } = payload;
-
-        // Check if user exists
         let user = await User.findOne({ email });
 
         if (!user) {
-            // If user doesn't exist, create a new one
-            user = new User({
-                googleId,
-                email,
-                fullName,
-                profilePhoto,
-            });
-            await user.save();
+            // This block handles first-time Google registration
+            const newUser = new User({ googleId, email, fullName, profilePhoto });
+            user = await newUser.save();
+
+            try {
+                // Create the corresponding Social document
+                const newSocial = new Social({ userId: user._id });
+                await newSocial.save();
+            } catch (socialError) {
+                // **Safety Net:** If social creation fails, delete the new user
+                await User.findByIdAndDelete(user._id);
+                throw socialError; // Send error to the outer catch block
+            }
         } else {
-            // If user exists but doesn't have a googleId, link the account
+            // This block handles existing users logging in with Google
             if (!user.googleId) {
                 user.googleId = googleId;
-                if (!user.profilePhoto) {
-                    user.profilePhoto = profilePhoto;
-                }
+                if (!user.profilePhoto) user.profilePhoto = profilePhoto;
                 await user.save();
             }
         }
 
-        // At this point, the user exists and is linked. Create a JWT.
+        // Create JWT and send response
         const token = jwt.sign(
-            { id: user._id, email: user.email, fullName: user.fullName, profilePhoto: user.profilePhoto },
+            { id: user._id, email: user.email, fullName: user.fullName },
             process.env.JWT_SECRET,
             { expiresIn: "7d" }
         );
 
         res.cookie('token', token, {
             httpOnly: true,
-            secure: true, // Set to true if using HTTPS
+            secure: true,
             sameSite: 'None',
-            maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days (this was already correct)
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         res.status(200).json({
             message: "Google login successful",
-            token,
-            user: {
-                id: user._id,
-                fullName: user.fullName,
-                email: user.email,
-                profilePhoto: user.profilePhoto
-            }
+            user: { id: user._id, fullName: user.fullName, email: user.email, profilePhoto: user.profilePhoto }
         });
 
     } catch (error) {
@@ -193,11 +185,21 @@ export const registerUser = async (req, res) => {
 
         const newUser = new User({ fullName, email, password });
         const savedUser = await newUser.save();
+
+        try {
+            const newSocial = new Social({ userId: savedUser._id });
+            await newSocial.save();
+        } catch (socialError) {
+            // **Safety Net:** If social creation fails, delete the orphaned user
+            await User.findByIdAndDelete(savedUser._id);
+            throw socialError; // Propagate error to the outer catch block
+        }
+
         res.status(201).json({ message: "User registered successfully", userId: savedUser.id });
 
     } catch (error) {
-        console.error("Error saving user:", error);
-        res.status(500).json({ message: "Server error" });
+        console.error("Error during registration:", error);
+        res.status(500).json({ message: "Server error during registration" });
     }
 };
 
@@ -273,40 +275,25 @@ export const getUserById = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
     try {
-
         const token = req.cookies?.token;
         if (!token) {
             return res.status(401).json({ message: "Not authenticated." });
         }
-        jwt.verify(token, process.env.JWT_SECRET);
-        const { projectId } = req.body;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const currentUserId = decoded.id;
 
-        let query = {};
+        // Find the current user's social document to get their friends list
+        const social = await Social.findOne({ userId: currentUserId });
 
-        // If a projectId is provided, modify the query to filter out existing project members
-        if (projectId) {
-            const project = await Project.findById(projectId);
+        // Create a list of user IDs to exclude: the user themselves and their friends.
+        // If the user has no social document yet, they have no friends.
+        const friendsIds = social ? social.friends : [];
+        const exclusionList = [currentUserId, ...friendsIds];
 
-            if (!project) {
-                return res.status(404).json({ message: "Project not found." });
-            }
+        // Build the query to find all users whose ID is "not in" the exclusion list
+        const query = { _id: { $nin: exclusionList } };
 
-            // Combine owner, admins, members, and invited users to get a full list of users already associated with the project
-            const existingUserIds = [
-                project.ownerId,
-                ...project.admins,
-                ...project.members,
-                ...project.invited
-            ];
-
-            // Create a Set to automatically handle any duplicate IDs
-            const uniqueExistingUserIds = [...new Set(existingUserIds)];
-
-            // Update the query to find all users whose ID is "not in" the list of existing users
-            query = { _id: { $nin: uniqueExistingUserIds } };
-        }
-
-        // Find users based on the constructed query, selecting only the necessary fields
+        // Find users based on the constructed query, selecting only necessary fields
         const users = await User.find(query).select('_id fullName profilePhoto email');
 
         // Map the results to format them with 'id' instead of '_id'
@@ -318,8 +305,12 @@ export const getAllUsers = async (req, res) => {
         }));
 
         res.status(200).json(formattedUsers);
+
     } catch (error) {
-        console.error("Error fetching all users:", error);
+        console.error("Error fetching users:", error);
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({ message: "Invalid token." });
+        }
         res.status(500).json({ message: "Server error while fetching users" });
     }
 };
