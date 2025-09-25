@@ -686,7 +686,7 @@ const ProjectView = () => {
                 return;
             }
             try {
-                const apiUrl = `${import.meta.env.VITE_URL_BACKEND}/projects/${projectId}/admins/${userToDemote.id}`;
+                const apiUrl = `${import.meta.env.VITE_URL_BACKEND}/projects/${projectId}/admins/demote/${userToDemote.id}`;
                 const resRemoveAdmin = await fetch(apiUrl, { method: 'DELETE', credentials: 'include' });
                 if (!resRemoveAdmin.ok) {
                     throw new Error(`Failed to remove user from admins. Status: ${resRemoveAdmin.status}`);

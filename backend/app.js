@@ -10,9 +10,9 @@ import projectRoutes from './routes/ProjectRoute.js';
 import SocialRoute from './routes/SocialRoute.js';
 
 const app = express();
-const server = http.createServer(app);   // <-- wrap express in http server
+const server = http.createServer(app);   
 const io = new Server(server, {
-  cors: { origin: "*" }                 // allow React frontend
+  cors: { origin: "*" }                 
 });
 
 // ---------- Middleware ----------

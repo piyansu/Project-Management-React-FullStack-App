@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, LoaderCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, LoaderCircle, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useGoogleLogin } from '@react-oauth/google'; // Import the hook for Google Login
+import { useGoogleLogin } from '@react-oauth/google';
 import projectManLogo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,9 +9,7 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
-  
-  // Get both login and the new loginWithGoogle functions from the context
-  const { login, loginWithGoogle } = useAuth(); 
+  const { login, loginWithGoogle } = useAuth();
 
   // State for API interaction
   const [isLoading, setIsLoading] = useState(false);
@@ -28,8 +26,12 @@ export default function AuthPage() {
     password: '',
     confirmPassword: ''
   });
+
+  // New state for OTP flow
+  const [showOtpForm, setShowOtpForm] = useState(false);
+  const [otp, setOtp] = useState('');
   
-  // A helper function to clear messages and form fields
+  // A helper function to clear messages
   const resetState = () => {
     setError('');
     setSuccess('');
@@ -38,6 +40,7 @@ export default function AuthPage() {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    setShowOtpForm(false); // Reset OTP form when switching tabs
     resetState();
   };
 
@@ -50,23 +53,18 @@ export default function AuthPage() {
     setIsLoading(true);
 
     try {
-      // Use the login function from the AuthContext
       await login(loginForm.email, loginForm.password);
-
       setSuccess('Login successful! Redirecting...');
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1000);
-
+      setTimeout(() => navigate('/dashboard'), 1000);
     } catch (err) {
-      // If login fails, the context throws an error which we catch here
       setError(err.message);
     } finally {
-      setIsLoading(false); // Re-enable the form on failure
+      setIsLoading(false);
     }
   };
 
-  const handleRegisterSubmit = async (e) => {
+  // Step 1 of Registration: Send OTP
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     if (registerForm.password !== registerForm.confirmPassword) {
       setError("Passwords do not match!");
@@ -77,22 +75,17 @@ export default function AuthPage() {
 
     try {
       const { fullName, email, password } = registerForm;
-      const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/auth/register`, {
+      const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fullName, email, password }),
       });
 
       const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to send OTP.');
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed. Please try again.');
-      }
-
-      setSuccess('Registration successful! Please log in.');
-      setActiveTab('login'); // Switch to login tab on success
-      setRegisterForm({fullName: '', email: '', password: '', confirmPassword: ''});
-
+      setSuccess(data.message);
+      setShowOtpForm(true); // Proceed to OTP verification step
     } catch (err) {
       setError(err.message);
     } finally {
@@ -100,7 +93,38 @@ export default function AuthPage() {
     }
   };
 
-  // --- New Google Login Logic ---
+  // Step 2 of Registration: Verify OTP
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    resetState();
+    setIsLoading(true);
+    
+    try {
+        const { email } = registerForm;
+        const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/auth/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'OTP verification failed.');
+        
+        setSuccess('Account verified successfully! Redirecting...');
+        // The backend sets the auth cookie, so we can redirect.
+        // A full page reload ensures the AuthContext is updated correctly.
+        setTimeout(() => {
+            window.location.href = '/dashboard';
+        }, 1500);
+
+    } catch(err) {
+        setError(err.message);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  // Google Login Logic
   const handleGoogleSuccess = async (codeResponse) => {
     resetState();
     setIsLoading(true);
@@ -118,10 +142,8 @@ export default function AuthPage() {
   const googleLogin = useGoogleLogin({
     onSuccess: handleGoogleSuccess,
     onError: () => setError('Google login failed. Please try again.'),
-    flow: 'auth-code', // Use the secure authorization code flow
+    flow: 'auth-code',
   });
-  // --- End of New Google Login Logic ---
-
 
   const commonInputClass = "w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors";
   
@@ -136,7 +158,6 @@ export default function AuthPage() {
     </button>
   );
 
-  // New component for the Google Button
   const GoogleButton = () => (
     <button
       type="button"
@@ -148,7 +169,6 @@ export default function AuthPage() {
       Continue with Google
     </button>
   );
-
 
   return (
     <div className="h-screen bg-white flex items-center justify-center scale-90">
@@ -183,13 +203,42 @@ export default function AuthPage() {
               <div><FormButton text="Login" /></div>
             </form>
           ) : (
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
-              <div className="relative"><User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type="text" name="fullName" value={registerForm.fullName} onChange={handleRegisterChange} required className={commonInputClass} placeholder="Enter your full name" /></div>
-              <div className="relative"><Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type="email" name="email" value={registerForm.email} onChange={handleRegisterChange} required className={commonInputClass} placeholder="Enter your email" /></div>
-              <div className="relative"><Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type={showPassword ? "text" : "password"} name="password" value={registerForm.password} onChange={handleRegisterChange} required className={commonInputClass} placeholder="Create a password" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></div>
-              <div className="relative"><Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type="password" name="confirmPassword" value={registerForm.confirmPassword} onChange={handleRegisterChange} required className={commonInputClass} placeholder="Confirm your password" /></div>
-              <div><FormButton text="Create Account" /></div>
-            </form>
+            !showOtpForm ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div className="relative"><User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type="text" name="fullName" value={registerForm.fullName} onChange={handleRegisterChange} required className={commonInputClass} placeholder="Enter your full name" /></div>
+                <div className="relative"><Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type="email" name="email" value={registerForm.email} onChange={handleRegisterChange} required className={commonInputClass} placeholder="Enter your email" /></div>
+                <div className="relative"><Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type={showPassword ? "text" : "password"} name="password" value={registerForm.password} onChange={handleRegisterChange} required className={commonInputClass} placeholder="Create a password" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></div>
+                <div className="relative"><Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type="password" name="confirmPassword" value={registerForm.confirmPassword} onChange={handleRegisterChange} required className={commonInputClass} placeholder="Confirm your password" /></div>
+                <div><FormButton text="Continue" /></div>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <p className="text-center text-sm text-gray-600">
+                    An OTP has been sent to <strong>{registerForm.email}</strong>.
+                  </p>
+                  <div className="relative">
+                      <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <input 
+                          type="text" 
+                          name="otp"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value)}
+                          required 
+                          className={commonInputClass}
+                          placeholder="Enter 6-digit OTP"
+                          maxLength="6"
+                      />
+                  </div>
+                  <div><FormButton text="Verify & Create Account" /></div>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowOtpForm(false)} 
+                    className="w-full text-center text-sm font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Back
+                  </button>
+              </form>
+            )
           )}
         </div>
 

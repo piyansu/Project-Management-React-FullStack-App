@@ -18,8 +18,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
 
     const title = roleToAdd === 'admin' ? 'Add Administrator' : 'Add Team Member';
     const buttonText = roleToAdd === 'admin' ? 'Add Administrator' : 'Add Member';
-    const subtitle = roleToAdd === 'admin' 
-        ? 'Grant administrative privileges to a user for this project.' 
+    const subtitle = roleToAdd === 'admin'
+        ? 'Grant administrative privileges to a user for this project.'
         : 'Add a new team member to collaborate on this project.';
 
     useEffect(() => {
@@ -30,7 +30,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
             setSubmitError(null);
             setFetchError(null);
             setIsDropdownOpen(false);
-            
+
             // Focus the search input when modal opens
             setTimeout(() => {
                 if (searchInputRef.current) {
@@ -41,10 +41,9 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
             const fetchUsers = async () => {
                 setIsLoading(true);
                 try {
-                    const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/auth/`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                    const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/projects/${projectId}/non-members`, {
+                        method: 'GET', // Use GET as defined in the route
+                        credentials: 'include', // Still needed to identify the current user (admin)
                     });
                     if (!response.ok) {
                         const errorData = await response.json();
@@ -52,7 +51,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
                     }
                     const data = await response.json();
                     setUsers(data);
-                } catch (err){
+                } catch (err) {
                     setFetchError(err.message);
                 } finally {
                     setIsLoading(false);
@@ -120,7 +119,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
                 const errorData = await response.json();
                 throw new Error(errorData.message || `Failed to add ${roleToAdd}.`);
             }
-            
+
             if (onUserAdded) {
                 onUserAdded();
             }
@@ -139,14 +138,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
         <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm transition-opacity" />
             <div className="flex min-h-full items-center justify-center p-4">
-                <div 
-                    ref={modalRef} 
+                <div
+                    ref={modalRef}
                     className="relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all border border-gray-100"
                 >
                     {/* Header */}
                     <div className="relative bg-gradient-to-r from-blue-600 to-blue-700 px-6 pt-6 pb-8">
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            onClick={onClose}
                             className="absolute right-4 top-4 text-blue-100 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 rounded-full p-1 transition-colors cursor-pointer"
                         >
                             <X className="h-5 w-5" />
@@ -192,7 +191,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
                                     autoComplete="off"
                                     className="block w-full rounded-xl border-gray-300 pl-12 pr-4 py-3 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:text-sm transition-all placeholder:text-gray-400"
                                 />
-                                
+
                                 {isDropdownOpen && (
                                     <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 border border-gray-200">
                                         <div className="max-h-64 overflow-auto">
@@ -216,16 +215,15 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
                                                         <button
                                                             key={user.id}
                                                             onClick={() => handleSelectUser(user)}
-                                                            className={`w-full px-4 py-3 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none transition-colors ${
-                                                                index !== filteredUsers.length - 1 ? 'border-b border-gray-100' : ''
-                                                            }`}
+                                                            className={`w-full px-4 py-3 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none transition-colors ${index !== filteredUsers.length - 1 ? 'border-b border-gray-100' : ''
+                                                                }`}
                                                         >
                                                             <div className="flex items-center justify-between">
                                                                 <div className="flex items-center space-x-3">
-                                                                    <img 
-                                                                        src={user.profilePhoto} 
-                                                                        alt="" 
-                                                                        className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-100" 
+                                                                    <img
+                                                                        src={user.profilePhoto}
+                                                                        alt=""
+                                                                        className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-100"
                                                                     />
                                                                     <div className="flex-1 min-w-0">
                                                                         <div className="font-medium text-gray-900 truncate">
@@ -264,10 +262,10 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, projectId, onUserAdded }) =>
                         {selectedUser && (
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                 <div className="flex items-center space-x-3">
-                                    <img 
-                                        src={selectedUser.profilePhoto} 
-                                        alt="" 
-                                        className="h-10 w-10 rounded-full object-cover ring-2 ring-blue-200" 
+                                    <img
+                                        src={selectedUser.profilePhoto}
+                                        alt=""
+                                        className="h-10 w-10 rounded-full object-cover ring-2 ring-blue-200"
                                     />
                                     <div className="flex-1">
                                         <div className="font-medium text-gray-900">{selectedUser.fullName}</div>

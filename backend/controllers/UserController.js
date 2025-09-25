@@ -1,8 +1,9 @@
 import User from "../models/User.js";
-import Project from "../models/Project.js";
 import Social from '../models/Social.js';
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from 'google-auth-library';
+import otpGenerator from 'otp-generator';
+import sendOTPEmail from '../utils/mailer.js';
 
 const oAuth2Client = new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
@@ -93,6 +94,10 @@ export const loginUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid credentials." });
         }
 
+        if (!user.isVerified) {
+            return res.status(403).json({ message: "Please verify your email before logging in." });
+        }
+
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             return res.status(400).json({ message: "Invalid credentials." });
@@ -167,39 +172,6 @@ export const updateUserProfile = async (req, res) => {
         }
         console.error("Error updating profile:", error);
         res.status(500).json({ message: "Server error while updating profile." });
-    }
-};
-
-export const registerUser = async (req, res) => {
-    try {
-        const { fullName, email, password } = req.body;
-
-        if (!fullName || !email || !password) {
-            return res.status(400).json({ message: "Full name, email, and password are required." });
-        }
-
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: "User already exists." });
-        }
-
-        const newUser = new User({ fullName, email, password });
-        const savedUser = await newUser.save();
-
-        try {
-            const newSocial = new Social({ userId: savedUser._id });
-            await newSocial.save();
-        } catch (socialError) {
-            // **Safety Net:** If social creation fails, delete the orphaned user
-            await User.findByIdAndDelete(savedUser._id);
-            throw socialError; // Propagate error to the outer catch block
-        }
-
-        res.status(201).json({ message: "User registered successfully", userId: savedUser.id });
-
-    } catch (error) {
-        console.error("Error during registration:", error);
-        res.status(500).json({ message: "Server error during registration" });
     }
 };
 
@@ -312,5 +284,106 @@ export const getAllUsers = async (req, res) => {
             return res.status(401).json({ message: "Invalid token." });
         }
         res.status(500).json({ message: "Server error while fetching users" });
+    }
+};
+
+export const sendOtp = async (req, res) => {
+    try {
+        const { fullName, email, password } = req.body;
+
+        if (!fullName || !email || !password) {
+            return res.status(400).json({ message: "All fields are required." });
+        }
+
+        let user = await User.findOne({ email });
+
+        if (user && user.isVerified) {
+            return res.status(400).json({ message: "A verified user with this email already exists." });
+        }
+
+        // If no user exists, create a new instance
+        if (!user) {
+            user = new User({ email });
+        }
+
+        const otp = otpGenerator.generate(6, {
+            upperCaseAlphabets: false,
+            specialChars: false,
+            lowerCaseAlphabets: false,
+        });
+
+        // Update the user document's fields
+        user.fullName = fullName;
+        user.password = password; // Set the plain-text password here
+        user.otp = otp;
+        user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+        user.isVerified = false;
+
+        // Now, save the user. This will trigger the pre-save hook to hash the password.
+        await user.save();
+
+        await sendOTPEmail(email, otp);
+
+        res.status(200).json({ message: "OTP sent successfully. Please check your email." });
+
+    } catch (error) {
+        console.error("Error during OTP sending:", error);
+        res.status(500).json({ message: "Server error during OTP sending" });
+    }
+};
+
+export const verifyOtpAndRegister = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({ message: "Email and OTP are required." });
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(400).json({ message: "User not found. Please register first." });
+        }
+
+        if (user.otp !== otp || user.otpExpires < Date.now()) {
+            return res.status(400).json({ message: "Invalid or expired OTP." });
+        }
+
+        // OTP is correct, finalize registration
+        user.isVerified = true;
+        user.otp = undefined;       // Clear OTP fields
+        user.otpExpires = undefined;
+        const savedUser = await user.save();
+
+        // Create the associated Social document
+        try {
+            const newSocial = new Social({ userId: savedUser.id });
+            await newSocial.save();
+        } catch (socialError) {
+            console.error("Error creating social document after verification:", socialError);
+            // This is a non-critical error for the user, but should be logged.
+        }
+
+        // Automatically log the user in by creating a JWT
+        const token = jwt.sign(
+            { id: savedUser.id, email: savedUser.email, fullName: savedUser.fullName },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        res.cookie('token', token, {
+            httpOnly: true, secure: true, sameSite: 'None',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.status(201).json({
+            message: "✅ Registration successful!",
+            user: { id: savedUser.id, fullName: savedUser.fullName, email: savedUser.email, profilePhoto: savedUser.profilePhoto }
+        });
+
+    } catch (error) {
+        console.error("Error during OTP verification:", error);
+        res.status(500).json({ message: "Server error during OTP verification" });
     }
 };

@@ -31,6 +31,17 @@ const userSchema = new mongoose.Schema({
         unique: true,
         sparse: true
     },
+    otp: {
+        type: String,
+        trim: true
+    },
+    otpExpires: {
+        type: Date
+    },
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
     profilePhoto: {
         type: String,
         default: ''
@@ -68,6 +79,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // Add indexes for better query performance
+userSchema.index({ _id: 1 });
 userSchema.index({ email: 1 });
 userSchema.index({ googleId: 1 });
 

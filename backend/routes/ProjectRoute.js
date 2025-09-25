@@ -10,7 +10,9 @@ import {
     addProjectAdmin,
     removeProjectAdmin,
     inviteProjectMember,
-    removeInvitedMember
+    removeInvitedMember,
+    getNonMemberFriends,
+    demoteProjectAdmin
 } from '../controllers/ProjectController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload from '../config/cloudinary.js';
@@ -33,9 +35,13 @@ router.route('/:id')
 
 router.post('/:id/members', addProjectMember);
 
+router.get('/:id/non-members', getNonMemberFriends);
+
 router.delete('/:id/members/:memberId', removeProjectMember);
 
 router.post('/:id/admins', addProjectAdmin);
+
+router.delete('/:id/admins/demote/:adminId', demoteProjectAdmin);
 
 router.delete('/:id/admins/:adminId', removeProjectAdmin);
 

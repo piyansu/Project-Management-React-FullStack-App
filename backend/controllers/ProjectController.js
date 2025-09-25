@@ -1,5 +1,6 @@
 import Project from '../models/Project.js';
 import User from '../models/User.js';
+import Social from '../models/Social.js';
 
 export const createProject = async (req, res) => {
     try {
@@ -254,6 +255,36 @@ export const removeProjectAdmin = async (req, res) => {
     }
 };
 
+export const demoteProjectAdmin = async (req, res) => {
+    try {
+        const { id, adminId } = req.params;
+        const project = await Project.findOne({ _id: id });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found.' });
+        }
+
+        const isAdmin = project.admins.includes(req.user._id.toString());
+
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Only admins can remove admins.' });
+        }
+
+        if (project.ownerId.toString() === adminId) {
+            return res.status(400).json({ message: 'The project owner cannot be removed as an admin.' });
+        }
+
+        project.admins = project.admins.filter(a => a.toString() !== adminId);
+        await project.save();
+
+        res.status(200).json({ message: 'Admin removed successfully.', admins: project.admins, members: project.members });
+
+    } catch (error) {
+        console.error('Error removing admin:', error);
+        res.status(500).json({ message: 'Server error.' });
+    }
+};
+
 export const inviteProjectMember = async (req, res) => {
     try {
         const { email } = req.body;
@@ -322,5 +353,51 @@ export const removeInvitedMember = async (req, res) => {
     } catch (error) {
         console.error('Error removing invitation:', error);
         res.status(500).json({ message: 'Server error.' });
+    }
+};
+
+export const getNonMemberFriends = async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const userId = req.user._id;
+
+        // Find the project to get its member list
+        const project = await Project.findById(projectId);
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found.' });
+        }
+
+        // Security Check: Ensure the user making the request is an admin
+        const isAdmin = project.admins.includes(userId.toString());
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Only project admins can perform this action.' });
+        }
+
+        // Find the user's social document to get their friends
+        const userSocial = await Social.findOne({ userId });
+        if (!userSocial || userSocial.friends.length === 0) {
+            // If the user has no friends, return an empty array
+            return res.status(200).json([]);
+        }
+
+        // Get an array of IDs for friends who are NOT already in the project
+        const nonMemberFriendIds = userSocial.friends.filter(friendId =>
+            !project.members.includes(friendId.toString())
+        );
+
+        if (nonMemberFriendIds.length === 0) {
+            return res.status(200).json([]);
+        }
+
+        // Fetch the full user objects for the non-member friends, excluding sensitive data
+        const potentialMembers = await User.find({
+            '_id': { $in: nonMemberFriendIds }
+        }).select('-password'); // Exclude password from the result
+
+        res.status(200).json(potentialMembers);
+
+    } catch (error) {
+        console.error('Error fetching non-member friends:', error);
+        res.status(500).json({ message: 'Server error while fetching potential members.' });
     }
 };
