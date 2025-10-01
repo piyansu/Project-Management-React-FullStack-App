@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from "react-router-dom";
 import {
     Calendar, Users, Clock, AlertCircle, CheckCircle2, Pause, XCircle, FileText, Briefcase,
-    MoreVertical, ArrowUpCircle, ArrowDownCircle, Crown, Shield, Trash2, X, AlertTriangle, UserPlus
+    MoreVertical, ArrowUpCircle, ArrowDownCircle, Crown, Shield, Trash2, X, AlertTriangle, UserPlus,
+    Edit3, Camera, Save
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -20,10 +21,24 @@ const ProjectView = () => {
     const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
     const [roleToAdd, setRoleToAdd] = useState(null);
 
+    // --- State for editing project details ---
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [editedTitle, setEditedTitle] = useState('');
+    const [isSavingTitle, setIsSavingTitle] = useState(false);
+
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
+    const [editedDescription, setEditedDescription] = useState('');
+    const [isSavingDescription, setIsSavingDescription] = useState(false);
+
+    const [isEditingLogo, setIsEditingLogo] = useState(false);
+    const [projectLogoFile, setProjectLogoFile] = useState(null);
+    const [projectLogoPreview, setProjectLogoPreview] = useState(null);
+    const [isSavingLogo, setIsSavingLogo] = useState(false);
+
+
     const { projectId } = useParams();
     const navigate = useNavigate();
 
-    // UPDATED: Fetch logic is extracted into a reusable useCallback hook
     const fetchProject = useCallback(async () => {
         try {
             const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/projects/${projectId}`, {
@@ -52,9 +67,8 @@ const ProjectView = () => {
         fetchProject();
     }, [fetchProject]);
 
-    // NEW: This function will be passed to the modal to trigger a data refresh
     const handleUserAdded = () => {
-        fetchProject(); // Silently re-fetches project data
+        fetchProject();
     };
 
     const openAddUserModal = (role) => {
@@ -85,6 +99,111 @@ const ProjectView = () => {
             setIsDeleting(false);
         }
     };
+
+    // --- Edit Handlers ---
+    const handleEditTitle = () => {
+        setEditedTitle(project.title || '');
+        setIsEditingTitle(true);
+    };
+
+    const handleCancelEditTitle = () => {
+        setIsEditingTitle(false);
+        setEditedTitle('');
+    };
+
+    const handleSaveTitle = async () => {
+        if (!editedTitle.trim()) return;
+        setIsSavingTitle(true);
+        try {
+            const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/projects/${projectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ title: editedTitle.trim() })
+            });
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                console.error('Failed to update title');
+            }
+        } catch (error) {
+            console.error('Error updating title:', error);
+        } finally {
+            setIsSavingTitle(false);
+        }
+    };
+
+    const handleEditDescription = () => {
+        setEditedDescription(project.description || '');
+        setIsEditingDescription(true);
+    };
+
+    const handleCancelEditDescription = () => {
+        setIsEditingDescription(false);
+        setEditedDescription('');
+    };
+
+    const handleSaveDescription = async () => {
+        setIsSavingDescription(true);
+        try {
+            const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/projects/${projectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ description: editedDescription.trim() })
+            });
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                console.error('Failed to update description');
+            }
+        } catch (error) {
+            console.error('Error updating description:', error);
+        } finally {
+            setIsSavingDescription(false);
+        }
+    };
+
+    const handleLogoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setProjectLogoFile(file);
+            setProjectLogoPreview(URL.createObjectURL(file));
+            setIsEditingLogo(true);
+        }
+    };
+
+    const handleCancelEditLogo = () => {
+        setIsEditingLogo(false);
+        setProjectLogoFile(null);
+        setProjectLogoPreview(null);
+    };
+
+    const handleSaveLogo = async () => {
+        if (!projectLogoFile) return;
+        setIsSavingLogo(true);
+        const formData = new FormData();
+        formData.append('logo', projectLogoFile);
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/projects/${projectId}`, {
+                method: 'PUT',
+                credentials: 'include',
+                body: formData,
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                console.error('Failed to update project logo');
+            }
+        } catch (error) {
+            console.error('Error updating project logo:', error);
+        } finally {
+            setIsSavingLogo(false);
+        }
+    };
+
 
     // --- Helper Functions ---
     const getStatusIcon = (status) => {
@@ -185,6 +304,8 @@ const ProjectView = () => {
             </div>
         );
     }
+
+    const isUserAdminOrOwner = user && project && (project.admins.includes(user.id) || project.ownerId === user.id);
 
     // --- Modal Component ---
     const DeleteProjectModal = ({ isOpen, onClose, onConfirm, projectName, isDeleting, error }) => {
@@ -390,13 +511,43 @@ const ProjectView = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
-                        <FileText className="w-5 h-5 mr-3 text-blue-600" />
-                        Description
-                    </h3>
-                    <p className="text-slate-700 leading-relaxed">
-                        {project.description || 'No description has been provided for this project.'}
-                    </p>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-slate-900 flex items-center">
+                            <FileText className="w-5 h-5 mr-3 text-blue-600" />
+                            Description
+                        </h3>
+                        {isUserAdminOrOwner && !isEditingDescription && (
+                            <button onClick={handleEditDescription} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit description">
+                                <Edit3 className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                    {isEditingDescription ? (
+                        <div className="space-y-3">
+                            <textarea
+                                value={editedDescription}
+                                onChange={(e) => setEditedDescription(e.target.value)}
+                                className="w-full text-slate-700 leading-relaxed bg-white border border-slate-300 p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical min-h-[120px]"
+                                placeholder="Enter project description..."
+                                autoFocus
+                                style={{ direction: 'ltr' }}
+                            />
+                            <div className="flex items-center space-x-2">
+                                <button onClick={handleSaveDescription} disabled={isSavingDescription} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 flex items-center space-x-2 cursor-pointer">
+                                    {isSavingDescription ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-4 h-4" />}
+                                    <span>Save</span>
+                                </button>
+                                <button onClick={handleCancelEditDescription} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 flex items-center space-x-2 cursor-pointer">
+                                    <X className="w-4 h-4" />
+                                    <span>Cancel</span>
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-slate-700 leading-relaxed">
+                            {project.description || 'No description has been provided for this project.'}
+                        </p>
+                    )}
                 </div>
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
@@ -416,19 +567,21 @@ const ProjectView = () => {
                     </ul>
                 </div>
             </div>
-            <div className="bg-rose-50 border border-rose-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-rose-900 mb-2">Delete Project</h3>
-                <p className="text-sm text-rose-800 mb-4">
-                    Once you delete this project, there is no going back. Please be certain.
-                </p>
-                <button
-                    onClick={() => setIsDeleteModalOpen(true)}
-                    className="inline-flex items-center justify-center px-4 py-2 bg-rose-600 text-white font-semibold rounded-lg shadow-sm hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 transition-colors cursor-pointer"
-                >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete this Project
-                </button>
-            </div>
+            {user?.id === project?.ownerId && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-rose-900 mb-2">Delete Project</h3>
+                    <p className="text-sm text-rose-800 mb-4">
+                        Once you delete this project, there is no going back. Please be certain.
+                    </p>
+                    <button
+                        onClick={() => setIsDeleteModalOpen(true)}
+                        className="inline-flex items-center justify-center px-4 py-2 bg-rose-600 text-white font-semibold rounded-lg shadow-sm hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 transition-colors cursor-pointer"
+                    >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete this Project
+                    </button>
+                </div>
+            )}
         </div>
     );
 
@@ -900,18 +1053,76 @@ const ProjectView = () => {
         <div className="space-y-6 pb-10">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <div className="flex items-start space-x-5">
-                    {project.logo ? (
-                        <img src={project.logo} alt={`${project.title} logo`} className="w-20 h-20 rounded-xl flex-shrink-0 object-cover border border-slate-200" />
-                    ) : (
-                        <div className={`w-20 h-20 rounded-xl flex-shrink-0 flex items-center justify-center border ${getProjectAvatarColor(project.title)}`}>
-                            <span className="text-2xl font-bold">
-                                {project.title.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                            </span>
-                        </div>
-                    )}
+                    <div className="relative flex-shrink-0">
+                        {project.logo || projectLogoPreview ? (
+                            <img src={projectLogoPreview || project.logo} alt={`${project.title} logo`} className="w-20 h-20 rounded-xl object-cover border border-slate-200" />
+                        ) : (
+                            <div className={`w-20 h-20 rounded-xl flex items-center justify-center border ${getProjectAvatarColor(project.title)}`}>
+                                <span className="text-2xl font-bold">
+                                    {project.title.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                </span>
+                            </div>
+                        )}
+                        {isUserAdminOrOwner && (
+                            <>
+                                <input
+                                    type="file"
+                                    id="logo-upload"
+                                    className="hidden"
+                                    onChange={handleLogoChange}
+                                    accept="image/png, image/jpeg"
+                                />
+                                <label
+                                    htmlFor="logo-upload"
+                                    className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-full shadow-md border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors cursor-pointer"
+                                    title="Change project logo"
+                                >
+                                    <Camera className="w-4 h-4 text-slate-600" />
+                                </label>
+                            </>
+                        )}
+                        {isEditingLogo && (
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center space-x-2 p-2 bg-black/50 rounded-lg">
+                                <button onClick={handleSaveLogo} disabled={isSavingLogo} className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors cursor-pointer" title="Save photo">
+                                    {isSavingLogo ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-4 h-4" />}
+                                </button>
+                                <button onClick={handleCancelEditLogo} className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors cursor-pointer" title="Cancel">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex-1">
-                        <h1 className="text-3xl font-bold text-slate-900 mb-2">{project.title}</h1>
-                        <div className="flex items-center flex-wrap gap-2">
+                        {isEditingTitle ? (
+                            <div className="flex items-center space-x-3">
+                                <input
+                                    type="text"
+                                    value={editedTitle}
+                                    onChange={(e) => setEditedTitle(e.target.value)}
+                                    className="text-3xl font-bold text-slate-900 bg-white border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    autoFocus
+                                />
+                                <div className="flex items-center space-x-2">
+                                    <button onClick={handleSaveTitle} disabled={isSavingTitle || !editedTitle.trim()} className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors cursor-pointer" title="Save title">
+                                        {isSavingTitle ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-4 h-4" />}
+                                    </button>
+                                    <button onClick={handleCancelEditTitle} className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors cursor-pointer" title="Cancel">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-3">
+                                <h1 className="text-3xl font-bold text-slate-900">{project.title}</h1>
+                                {isUserAdminOrOwner && (
+                                    <button onClick={handleEditTitle} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit title">
+                                        <Edit3 className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        <div className="flex items-center flex-wrap gap-2 mt-2">
                             <div className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold border ${getStatusColor(project.status)}`}>
                                 {getStatusIcon(project.status)}
                                 <span className="ml-2">{project.status}</span>
@@ -951,7 +1162,7 @@ const ProjectView = () => {
                     onClose={() => setIsAddUserModalOpen(false)}
                     roleToAdd={roleToAdd}
                     projectId={projectId}
-                    onUserAdded={handleUserAdded} // UPDATED: Pass the callback here
+                    onUserAdded={handleUserAdded}
                 />
             )}
         </div>

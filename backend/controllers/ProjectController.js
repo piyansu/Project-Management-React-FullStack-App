@@ -84,19 +84,28 @@ export const updateProject = async (req, res) => {
             return res.status(404).json({ message: 'Project not found.' });
         }
 
+        // CORRECTED: Allow owners or admins to update
         const isOwner = project.ownerId.toString() === req.user._id.toString();
+        const isAdmin = project.admins.includes(req.user._id.toString());
 
-        if (!isOwner) {
+        if (!isOwner && !isAdmin) {
             return res.status(403).json({ message: 'User not authorized to update this project.' });
         }
 
         const { title, description, startDate, dueDate, priority, status } = req.body;
-        project.title = title || project.title;
-        project.description = description || project.description;
-        project.startDate = startDate || project.startDate;
-        project.dueDate = dueDate || project.dueDate;
-        project.priority = priority || project.priority;
-        project.status = status || project.status;
+        
+        // Check for each field before updating
+        if (title !== undefined) project.title = title;
+        if (description !== undefined) project.description = description;
+        if (startDate !== undefined) project.startDate = startDate;
+        if (dueDate !== undefined) project.dueDate = dueDate;
+        if (priority !== undefined) project.priority = priority;
+        if (status !== undefined) project.status = status;
+        
+        // ADDED: Handle file upload for the logo
+        if (req.file) {
+            project.logo = req.file.path;
+        }
 
         const updatedProject = await project.save();
         res.status(200).json(updatedProject);
@@ -399,5 +408,45 @@ export const getNonMemberFriends = async (req, res) => {
     } catch (error) {
         console.error('Error fetching non-member friends:', error);
         res.status(500).json({ message: 'Server error while fetching potential members.' });
+    }
+};
+
+
+const handleSaveProjectLogo = async () => {
+    // assuming 'projectLogoFile' is the state holding the selected file
+    // and 'projectId' is the ID of the project being edited
+    if (!projectLogoFile || !projectId) return;
+
+    setIsSavingLogo(true);
+    
+    // 1. Create a FormData object
+    const formData = new FormData();
+    
+    // 2. Append the file. The key 'logo' should match your Multer setup on the backend.
+    formData.append('logo', projectLogoFile); 
+    // You can also append other fields if you want to update them at the same time
+    // formData.append('title', 'New Project Title');
+
+    try {
+        const response = await fetch(`/api/projects/${projectId}`, { // Your project update endpoint
+            method: 'PUT',
+            credentials: 'include',
+            
+            // 3. DO NOT set the 'Content-Type' header here!
+            // The browser will automatically set it to 'multipart/form-data'.
+            body: formData,
+        });
+
+        if (response.ok) {
+            console.log("Project logo updated successfully!");
+            // Refresh data or redirect
+            window.location.reload(); 
+        } else {
+            console.error('Failed to update project logo');
+        }
+    } catch (error) {
+        console.error('Error updating project logo:', error);
+    } finally {
+        setIsSavingLogo(false);
     }
 };

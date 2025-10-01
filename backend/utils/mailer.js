@@ -35,18 +35,13 @@ const sendOTPEmail = async (email, otp, options = {}) => {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <tr>
-                  <td style="padding: 40px 40px 30px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px 12px 0 0;">
+                  <td style="padding: 40px 40px 30px 40px; background: #ffffff; border-radius: 12px 12px 0 0; border-bottom: 1px solid #e2e8f0;">
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                       <tr>
                         <td style="text-align: left; vertical-align: middle;">
                           <img src="${logoPath}" 
                                alt="Project Logo" 
                                style="height: 40px; width: auto; display: block;" />
-                        </td>
-                        <td style="text-align: right; vertical-align: middle;">
-                          <img src="${profilePath}" 
-                               alt="Profile Photo" 
-                               style="height: 50px; width: 50px; border-radius: 50%; border: 2px solid #ffffff; display: block;" />
                         </td>
                       </tr>
                     </table>
@@ -150,7 +145,7 @@ const sendOTPEmail = async (email, otp, options = {}) => {
                 <tr>
                   <td style="text-align: center;">
                     <p style="margin: 0; font-size: 12px; color: #a0aec0; line-height: 1.4;">
-                      © 2024 Your Company Name. All rights reserved.
+                      © 2025 ProjectMan . All rights reserved.
                     </p>
                   </td>
                 </tr>

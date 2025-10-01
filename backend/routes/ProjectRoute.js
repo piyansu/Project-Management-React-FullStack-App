@@ -29,7 +29,7 @@ router.route('/')
 
 router.route('/:id')
     .get(getProjectById)
-    .put(updateProject)
+    .put(upload.single('logo'), updateProject)
     .delete(deleteProject);
 
 

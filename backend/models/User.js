@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import Social from './Social.js'; // Import the Social model
 
 const userSchema = new mongoose.Schema({
     _id: {
@@ -69,6 +70,18 @@ userSchema.pre('save', async function (next) {
         this.password = await bcrypt.hash(this.password, salt);
         next();
     } catch (error) {
+        next(error);
+    }
+});
+
+//Middleware to delete Social document when a User is deleted
+userSchema.pre('deleteOne', { document: true, query: false }, async function(next) {
+    try {
+        // `this._id` refers to the _id of the user being deleted
+        await Social.deleteOne({ userId: this._id });
+        next();
+    } catch (error) {
+        console.error(`Failed to delete social data for user ${this._id}`, error);
         next(error);
     }
 });
