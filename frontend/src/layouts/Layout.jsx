@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-// 1. Import useLocation from react-router-dom
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
     Menu,
@@ -14,7 +13,8 @@ import {
     Bell,
     X,
     Folder,
-    Plus
+    Plus,
+    ClipboardList
 } from 'lucide-react';
 
 import projectManLogo from '../assets/logo.png';
@@ -24,26 +24,25 @@ const Layout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
     const [projectsDropdownOpen, setProjectsDropdownOpen] = useState(false);
+    const [tasksDropdownOpen, setTasksDropdownOpen] = useState(false);
     const [projects, setProjects] = useState([]);
     const {user,  logout } = useAuth();
     const navigate = useNavigate();
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
-    // 2. Get the current location object
     const location = useLocation();
 
     const profileRef = useRef(null);
     const dropdownRef = useRef(null);
 
-    // 3. Removed the hardcoded 'active' property
     const sidebarItems = [
         { icon: Home, label: 'Dashboard', href: '/dashboard' },
         { icon: FolderKanban, label: 'Projects', href: '/projects', hasDropdown: true },
+        { icon: ClipboardList, label: 'Tasks', href: '/tasks', hasDropdown: true },
         {label: 'Coworkers', icon: Plus, href: '/coworkers' },
     ];
 
-    // Fetch projects function
     const fetchProjects = async () => {
         try {
             const response = await fetch(`${import.meta.env.VITE_URL_BACKEND}/projects`, {
@@ -59,7 +58,8 @@ const Layout = () => {
             } else {
                 console.error('Failed to fetch projects');
             }
-        } catch (error) {
+        } catch (error)
+        {
             console.error('Error fetching projects:', error);
         }
     };
@@ -78,12 +78,17 @@ const Layout = () => {
         setProjectsDropdownOpen(!projectsDropdownOpen);
     };
 
+    const toggleTasksDropdown = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setTasksDropdownOpen(!tasksDropdownOpen);
+    };
+
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
-    // Handle window resize
     useEffect(() => {
         const handleResize = () => {
             const isLargeScreen = window.innerWidth >= 1024;
@@ -97,7 +102,6 @@ const Layout = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Handle hover for profile dropdown
     useEffect(() => {
         const profileElement = profileRef.current;
         const dropdownElement = dropdownRef.current;
@@ -136,7 +140,6 @@ const Layout = () => {
         };
     }, [profileDropdownOpen]);
 
-    // Fetch projects on component mount
     useEffect(() => {
         fetchProjects();
     }, []);
@@ -154,7 +157,7 @@ const Layout = () => {
                     z-50 inset-y-0 left-0 bg-white shadow-xl transition-all duration-300 ease-in-out flex flex-col border-r border-gray-200
                 `}
             >
-                {/* Compact Sidebar Header */}
+                {/* Sidebar Header */}
                 <div className="h-16 flex items-center px-4 pl-7 border-b border-gray-100">
                     {(isDesktop ? sidebarOpen : mobileSidebarOpen) ? (
                         <div className="flex items-center space-x-3">
@@ -168,7 +171,6 @@ const Layout = () => {
                         isDesktop && <div className="w-8 h-8"></div>
                     )}
                     
-                    {/* Mobile close button */}
                     {!isDesktop && mobileSidebarOpen && (
                         <button
                             onClick={() => setMobileSidebarOpen(false)}
@@ -179,20 +181,22 @@ const Layout = () => {
                     )}
                 </div>
 
-                {/* Compact Sidebar Navigation */}
+                {/* Sidebar Navigation */}
                 <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                     {sidebarItems.map((item, index) => {
                         const IconComponent = item.icon;
-                        // 4. Dynamically check if the link is active
-                        const isActive = location.pathname === item.href || 
-                                        (item.href === '/projects' && location.pathname.startsWith('/projects/'));
+                        
+                        // **MODIFICATION START**: Improved active state logic
+                        const isProjectsPath = item.href === '/projects' && location.pathname.startsWith('/projects');
+                        const isTasksPath = item.href === '/tasks' && location.pathname.startsWith('/tasks');
+                        const isActive = location.pathname === item.href || isProjectsPath || isTasksPath;
+                        // **MODIFICATION END**
                         
                         return (
                             <div key={index} className="relative">
                                 <div className="flex items-center group">
                                     <Link
                                         to={item.href}
-                                        // Use the 'isActive' variable to apply conditional classes
                                         className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 flex-1 relative overflow-hidden ${
                                             isActive
                                                 ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 shadow-sm border border-blue-200/50'
@@ -200,7 +204,6 @@ const Layout = () => {
                                         }`}
                                         onClick={() => !isDesktop && setMobileSidebarOpen(false)}
                                     >
-                                        {/* Active indicator */}
                                         {isActive && (
                                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-blue-600 rounded-r-full"></div>
                                         )}
@@ -215,7 +218,6 @@ const Layout = () => {
                                             }`}>{item.label}</span>
                                         )}
                                         
-                                        {/* Tooltip for collapsed desktop sidebar */}
                                         {isDesktop && !sidebarOpen && (
                                             <div className="absolute left-full ml-3 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 whitespace-nowrap shadow-xl">
                                                 {item.label}
@@ -224,60 +226,120 @@ const Layout = () => {
                                         )}
                                     </Link>
                                     
-                                    {/* Simplified Dropdown button for projects */}
-                                    {item.hasDropdown && projects.length > 0 && (isDesktop ? sidebarOpen : mobileSidebarOpen) && (
-                                        <button
-                                            onClick={toggleProjectsDropdown}
-                                            className={`p-2 rounded-lg transition-all duration-200 mr-1 cursor-pointer ${
-                                                projectsDropdownOpen 
-                                                    ? 'bg-blue-100 text-blue-600' 
-                                                    : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
-                                            }`}
-                                        >
-                                            <ChevronRight className={`w-4 h-4 transform transition-all duration-300  ${
-                                                projectsDropdownOpen ? 'rotate-90 scale-110' : ''
-                                            }`} />
-                                        </button>
+                                    {item.hasDropdown && (isDesktop ? sidebarOpen : mobileSidebarOpen) && (
+                                        <>
+                                            {item.href === '/projects' && projects.length > 0 && (
+                                                <button
+                                                    onClick={toggleProjectsDropdown}
+                                                    className={`p-2 rounded-lg transition-all duration-200 mr-1 cursor-pointer ${
+                                                        projectsDropdownOpen 
+                                                            ? 'bg-blue-100 text-blue-600' 
+                                                            : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
+                                                    }`}
+                                                >
+                                                    <ChevronRight className={`w-4 h-4 transform transition-all duration-300  ${
+                                                        projectsDropdownOpen ? 'rotate-90 scale-110' : ''
+                                                    }`} />
+                                                </button>
+                                            )}
+                                            {item.href === '/tasks' && projects.length > 0 && (
+                                                <button
+                                                    onClick={toggleTasksDropdown}
+                                                    className={`p-2 rounded-lg transition-all duration-200 mr-1 cursor-pointer ${
+                                                        tasksDropdownOpen 
+                                                            ? 'bg-blue-100 text-blue-600' 
+                                                            : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
+                                                    }`}
+                                                >
+                                                    <ChevronRight className={`w-4 h-4 transform transition-all duration-300  ${
+                                                        tasksDropdownOpen ? 'rotate-90 scale-110' : ''
+                                                    }`} />
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                                 
-                                {/* Simplified Projects dropdown */}
-                                {item.hasDropdown && projects.length > 0 && (isDesktop ? sidebarOpen : mobileSidebarOpen) && (
-                                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                                        projectsDropdownOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                                    }`}>
-                                        <div className="ml-6 mt-2 space-y-1 pl-4 border-l-2 border-gray-100">
-                                            {projects.map((project) => {
-                                                const projectPath = `/projects/${project._id}`;
-                                                const isProjectActive = location.pathname === projectPath;
-                                                
-                                                return (
-                                                    <Link
-                                                        key={project._id}
-                                                        to={projectPath}
-                                                        className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 group relative ${
-                                                            isProjectActive
-                                                                ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border border-blue-200/50 shadow-sm'
-                                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                        }`}
-                                                        onClick={() => !isDesktop && setMobileSidebarOpen(false)}
-                                                    >
-                                                        {isProjectActive && (
-                                                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 rounded-r-full"></div>
-                                                        )}
-                                                        <Folder className={`w-4 h-4 flex-shrink-0 transition-colors duration-200 ${
-                                                            isProjectActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-blue-500'
-                                                        }`} />
-                                                        <span className={`font-medium truncate ${
-                                                            isProjectActive ? 'text-blue-700' : 'text-gray-700'
-                                                        }`}>
-                                                            {project.title}
-                                                        </span>
-                                                    </Link>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                {item.hasDropdown && (isDesktop ? sidebarOpen : mobileSidebarOpen) && (
+                                    <>
+                                        {item.href === '/projects' && projects.length > 0 && (
+                                            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                                                projectsDropdownOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                                            }`}>
+                                                <div className="ml-6 mt-2 space-y-1 pl-4 border-l-2 border-gray-100">
+                                                    {projects.map((project) => {
+                                                        const projectPath = `/projects/${project._id}`;
+                                                        const isProjectActive = location.pathname.startsWith(projectPath);
+                                                        
+                                                        return (
+                                                            <Link
+                                                                key={project._id}
+                                                                to={projectPath}
+                                                                className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 group relative ${
+                                                                    isProjectActive
+                                                                        ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border border-blue-200/50 shadow-sm'
+                                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                                }`}
+                                                                onClick={() => !isDesktop && setMobileSidebarOpen(false)}
+                                                            >
+                                                                {isProjectActive && (
+                                                                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 rounded-r-full"></div>
+                                                                )}
+                                                                <Folder className={`w-4 h-4 flex-shrink-0 transition-colors duration-200 ${
+                                                                    isProjectActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-blue-500'
+                                                                }`} />
+                                                                <span className={`font-medium truncate ${
+                                                                    isProjectActive ? 'text-blue-700' : 'text-gray-700'
+                                                                }`}>
+                                                                    {project.title}
+                                                                </span>
+                                                            </Link>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* **MODIFICATION START**: Tasks dropdown links updated */}
+                                        {item.href === '/tasks' && projects.length > 0 && (
+                                            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                                                tasksDropdownOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                                            }`}>
+                                                <div className="ml-6 mt-2 space-y-1 pl-4 border-l-2 border-gray-100">
+                                                    {projects.map((project) => {
+                                                        const taskPath = `/tasks/${project._id}`;
+                                                        const isTaskPathActive = location.pathname.startsWith(taskPath);
+                                                        
+                                                        return (
+                                                            <Link
+                                                                key={project._id}
+                                                                to={taskPath}
+                                                                className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 group relative ${
+                                                                    isTaskPathActive
+                                                                        ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border border-blue-200/50 shadow-sm'
+                                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                                }`}
+                                                                onClick={() => !isDesktop && setMobileSidebarOpen(false)}
+                                                            >
+                                                                {isTaskPathActive && (
+                                                                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 rounded-r-full"></div>
+                                                                )}
+                                                                <ClipboardList className={`w-4 h-4 flex-shrink-0 transition-colors duration-200 ${
+                                                                    isTaskPathActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-blue-500'
+                                                                }`} />
+                                                                <span className={`font-medium truncate ${
+                                                                    isTaskPathActive ? 'text-blue-700' : 'text-gray-700'
+                                                                }`}>
+                                                                    {project.title}
+                                                                </span>
+                                                            </Link>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* **MODIFICATION END** */}
+                                    </>
                                 )}
                             </div>
                         );
@@ -287,9 +349,8 @@ const Layout = () => {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Enhanced Navbar */}
+                {/* Navbar */}
                 <header className="h-16 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200/50 flex items-center justify-between px-4 sm:px-6">
-                    {/* Left side */}
                     <div className="flex items-center space-x-4">
                         <button
                             onClick={toggleSidebar}
@@ -303,9 +364,7 @@ const Layout = () => {
                         </button>
                     </div>
 
-                    {/* Right side */}
                     <div className="flex items-center space-x-2 sm:space-x-4">
-                        {/* Enhanced Notifications */}
                         <button className="relative p-2 rounded-lg hover:bg-gray-100/80 transition-all duration-200 cursor-pointer group">
                             <Bell className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors duration-200" />
                             <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
@@ -313,7 +372,6 @@ const Layout = () => {
                             </div>
                         </button>
 
-                        {/* Enhanced Profile dropdown */}
                         <div className="relative" ref={profileRef}>
                             <button className="flex items-center space-x-2 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100/80 transition-all duration-200 cursor-pointer group">
                                 <div className="relative">
@@ -335,7 +393,6 @@ const Layout = () => {
                                 }`} />
                             </button>
 
-                            {/* Enhanced Profile Dropdown */}
                             {profileDropdownOpen && (
                                 <div
                                     ref={dropdownRef}
@@ -364,7 +421,6 @@ const Layout = () => {
                                         </div>
                                     </div>
 
-                                    {/* Enhanced Menu Items */}
                                     <div className="py-1">
                                         <button onClick={() => navigate('/profile')} className="w-full flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50/80 transition-all duration-200 group cursor-pointer">
                                             <User className="w-4 h-4 text-gray-500 group-hover:text-blue-500 transition-colors duration-200" />
@@ -400,7 +456,6 @@ const Layout = () => {
                 </main>
             </div>
 
-            {/* Enhanced Mobile overlay */}
             {!isDesktop && mobileSidebarOpen && (
                 <div
                     className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm transition-opacity duration-300"

@@ -13,6 +13,8 @@ import Projects from './pages/Projects';
 import ProjectView from './pages/ProjectView';
 import ProfilePage from './pages/ProfilePage';
 import SocialDashboard from './pages/SocialDashboard';
+import TasksPage from './pages/Tasks';
+import TaskView from './pages/TaskView';
 
 const App = () => {
     // Correctly call the hook inside the component to get the user
@@ -30,7 +32,10 @@ const App = () => {
                     <Route path="projects" element={<RouteProtect><Projects /></RouteProtect>} />
                     <Route path="projects/:projectId" element={<RouteProtect><ProjectView /></RouteProtect>} />
                     <Route path="profile" element={<RouteProtect><ProfilePage /></RouteProtect>} />
+                    <Route path="tasks" element={<RouteProtect><TasksPage /></RouteProtect>} />
                     <Route path="coworkers" element={<RouteProtect><SocialDashboard /></RouteProtect>} />
+                    <Route path="tasks/:projectId" element={<RouteProtect><TaskView /></RouteProtect>} />
+
                 </Route>
             </Routes>
         </SocketProvider>

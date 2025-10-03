@@ -350,9 +350,9 @@ export const verifyOtpAndRegister = async (req, res) => {
             return res.status(400).json({ message: "Invalid or expired OTP." });
         }
 
-        // OTP is correct, finalize registration
+        
         user.isVerified = true;
-        user.otp = undefined;       // Clear OTP fields
+        user.otp = undefined;       
         user.otpExpires = undefined;
         const savedUser = await user.save();
 

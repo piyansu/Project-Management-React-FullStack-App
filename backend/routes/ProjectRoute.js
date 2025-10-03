@@ -16,11 +16,12 @@ import {
 } from '../controllers/ProjectController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload from '../config/cloudinary.js';
+import taskRoutes from './TaskRoute.js';
 
 const router = express.Router();
 
 router.use(protect);
-
+router.use('/:projectId/tasks', taskRoutes);
 
 router.route('/')
     .post(upload.single('logo'), createProject)

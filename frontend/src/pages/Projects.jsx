@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Import Link
 import {
     Plus,
     Search,
-    Filter,
     MoreHorizontal,
     Calendar,
     Users,
@@ -14,10 +13,6 @@ import {
     Folder,
     Grid3x3,
     List,
-    ArrowUpDown,
-    User,
-    CalendarDays,
-    Building2
 } from 'lucide-react';
 
 import NewProjectModal from '../modals/NewProjectModal';
@@ -34,7 +29,7 @@ const Projects = () => {
     const [priorityFilter, setPriorityFilter] = useState('All');
     const [sortBy, setSortBy] = useState('createdAt');
     const [sortOrder, setSortOrder] = useState('desc');
-    const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [viewMode, setViewMode] = useState('grid');
     const [newModalOpen, setNewModalOpen] = useState(false);
     const [needsRefresh, setNeedsRefresh] = useState(false);
     const navigate = useNavigate();
@@ -67,7 +62,7 @@ const Projects = () => {
 
     useEffect(() => {
         fetchProjects();
-    }, [fetchProjects]);
+    }, [fetchProjects, needsRefresh]);
 
     useEffect(() => {
         let filtered = projects.filter(project => {
@@ -127,40 +122,28 @@ const Projects = () => {
         navigate(`/projects/${projectId}`);
     };
 
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'Active': return <Target className="w-4 h-4" />;
-            case 'Completed': return <CheckCircle className="w-4 h-4" />;
-            case 'On Hold': return <Clock className="w-4 h-4" />;
-            case 'Inactive': return <AlertCircle className="w-4 h-4" />;
-            default: return <Folder className="w-4 h-4" />;
-        }
-    };
-
     const getStatusColor = (status) => {
         switch (status) {
-            case 'Active': return 'text-green-600 bg-green-50 border-green-200';
-            case 'Completed': return 'text-blue-600 bg-blue-50 border-blue-200';
-            case 'On Hold': return 'text-orange-600 bg-orange-50 border-orange-200';
-            case 'Inactive': return 'text-gray-600 bg-gray-50 border-gray-200';
-            default: return 'text-gray-600 bg-gray-50 border-gray-200';
+            case 'Completed': return 'bg-green-100 text-green-800 border-green-200';
+            case 'Active': return 'bg-blue-100 text-blue-800 border-blue-200';
+            case 'On Hold': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            case 'Inactive': return 'bg-gray-100 text-gray-800 border-gray-200';
+            default: return 'bg-gray-100 text-gray-800 border-gray-200';
         }
     };
 
     const getPriorityColor = (priority) => {
         switch (priority) {
-            case 'Urgent': return 'text-red-600 bg-red-50 border-red-200';
-            case 'High': return 'text-orange-600 bg-orange-50 border-orange-200';
-            case 'Medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-            case 'Low': return 'text-green-600 bg-green-50 border-green-200';
-            default: return 'text-gray-600 bg-gray-50 border-gray-200';
+            case 'Urgent': return 'bg-red-100 text-red-800 border-red-200';
+            case 'High': return 'bg-orange-100 text-orange-800 border-orange-200';
+            case 'Medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            case 'Low': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+            default: return 'bg-gray-100 text-gray-800 border-gray-200';
         }
     };
 
-    // Generate a project logo based on the project title
     const getProjectLogo = (title) => {
         if (!title) return 'P';
-        // Take first two letters of the title, or first letter of first two words
         const words = title.trim().split(' ');
         if (words.length >= 2) {
             return (words[0][0] + words[1][0]).toUpperCase();
@@ -168,24 +151,9 @@ const Projects = () => {
         return title.substring(0, 2).toUpperCase();
     };
 
-    // Generate a color for the logo based on the project title
     const getLogoColor = (title) => {
-        const colors = [
-            'bg-blue-500',
-            'bg-green-500',
-            'bg-purple-500',
-            'bg-red-500',
-            'bg-yellow-500',
-            'bg-indigo-500',
-            'bg-pink-500',
-            'bg-teal-500',
-            'bg-orange-500',
-            'bg-cyan-500'
-        ];
-        
+        const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-red-500', 'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500', 'bg-teal-500'];
         if (!title) return colors[0];
-        
-        // Generate a consistent color based on title
         let hash = 0;
         for (let i = 0; i < title.length; i++) {
             hash = title.charCodeAt(i) + ((hash << 5) - hash);
@@ -195,23 +163,20 @@ const Projects = () => {
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
-    const getDaysUntilDue = (dueDate) => {
+    const getDaysRemaining = (dueDate) => {
         if (!dueDate) return 'No due date';
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const due = new Date(dueDate);
-        const diffTime = due.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        due.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
 
         if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
         if (diffDays === 0) return 'Due today';
-        if (diffDays === 1) return 'Due tomorrow';
         return `${diffDays} days left`;
     };
 
@@ -235,6 +200,18 @@ const Projects = () => {
             </div>
         );
     }
+    
+    // Status icons mapping for list view
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'Active': return <Target className="w-4 h-4" />;
+            case 'Completed': return <CheckCircle className="w-4 h-4" />;
+            case 'On Hold': return <Clock className="w-4 h-4" />;
+            case 'Inactive': return <AlertCircle className="w-4 h-4" />;
+            default: return <Folder className="w-4 h-4" />;
+        }
+    };
+
 
     return (
         <div className="space-y-6 pb-10">
@@ -298,11 +275,10 @@ const Projects = () => {
                 </div>
             </div>
 
-            {/* Filters and Controls */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+             {/* Filters and Controls */}
+             <div className="bg-white p-6 rounded-lg border border-gray-200">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div className="flex flex-col sm:flex-row gap-4">
-                        {/* Search */}
                         <div className="relative">
                             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                             <input
@@ -313,8 +289,6 @@ const Projects = () => {
                                 className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                             />
                         </div>
-
-                        {/* Status Filter */}
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
@@ -326,8 +300,6 @@ const Projects = () => {
                             <option value="On Hold">On Hold</option>
                             <option value="Inactive">Inactive</option>
                         </select>
-
-                        {/* Priority Filter */}
                         <select
                             value={priorityFilter}
                             onChange={(e) => setPriorityFilter(e.target.value)}
@@ -342,7 +314,6 @@ const Projects = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Sort */}
                         <select
                             value={`${sortBy}-${sortOrder}`}
                             onChange={(e) => {
@@ -360,18 +331,16 @@ const Projects = () => {
                             <option value="dueDate-desc">Due Date (Latest)</option>
                             <option value="priority-desc">Priority (High to Low)</option>
                         </select>
-
-                        {/* View Toggle */}
                         <div className="flex border border-gray-300 rounded-lg">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-2 cursor-pointer ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'} transition-colors duration-200`}
+                                className={`p-2 cursor-pointer ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'} transition-colors duration-200 rounded-l-md`}
                             >
                                 <Grid3x3 className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`p-2 cursor-pointer ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'} transition-colors duration-200`}
+                                className={`p-2 cursor-pointer ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'} transition-colors duration-200 rounded-r-md`}
                             >
                                 <List className="w-4 h-4" />
                             </button>
@@ -399,92 +368,74 @@ const Projects = () => {
             ) : (
                 <>
                     {viewMode === 'grid' ? (
-                        /* Grid View */
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredProjects.map((project) => (
-                                <div
-                                    key={project._id}
-                                    onClick={() => handleProjectClick(project._id)}
-                                    className="group bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col hover:border-blue-300 cursor-pointer transform hover:scale-105" // Added hover:scale-105
-                                >
-                                    {/* Header Section */}
-                                    <div className="p-6 border-b border-gray-100">
-                                        <div className="flex items-start gap-4 mb-4">
-                                            {/* Project Logo */}
+                        /* Grid View - **MODIFIED** */
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {filteredProjects.map((project) => {
+                                const daysLeft = getDaysRemaining(project.dueDate);
+                                const isOverdue = daysLeft.includes('overdue');
+                                return (
+                                    <Link
+                                        key={project._id}
+                                        to={`/projects/${project._id}`}
+                                        className="block bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group border border-slate-200/80 hover:scale-[1.02]"
+                                    >
+                                        <div className="h-40 overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
                                             {project.logo ? (
                                                 <img
                                                     src={project.logo}
-                                                    alt={`${project.title} logo`}
-                                                    className="w-16 h-16 rounded-lg object-cover border border-gray-200 shadow-sm flex-shrink-0"
+                                                    alt={project.title}
+                                                    className="w-full h-full object-cover"
                                                 />
                                             ) : (
-                                                <div className={`w-16 h-16 rounded-lg ${getLogoColor(project.title)} text-white flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0`}>
+                                                <div className={`w-24 h-24 rounded-lg ${getLogoColor(project.title)} text-white flex items-center justify-center font-bold text-3xl shadow-sm flex-shrink-0`}>
                                                     {getProjectLogo(project.title)}
                                                 </div>
                                             )}
-                                            
-                                            {/* Title and Description */}
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors leading-tight mb-2">
-                                                    {project.title}
-                                                </h3>
-                                                <p className="text-gray-700 text-sm leading-relaxed truncate">
-                                                    {project.description || "No description provided for this project."}
-                                                </p>
-                                            </div>
                                         </div>
-
-                                        {/* Status and Priority Badges */}
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${getStatusColor(project.status)}`}>
-                                                {getStatusIcon(project.status)}
-                                                <span className="capitalize">{project.status}</span>
+                                        <div className="p-4 flex flex-col h-[calc(100%-10rem)]">
+                                            <h3 className="text-lg font-bold text-slate-800 mb-2 truncate group-hover:text-blue-600">
+                                                {project.title}
+                                            </h3>
+                                            <div className="flex gap-2 mb-3">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(project.status)}`}>
+                                                    {project.status}
+                                                </span>
+                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(project.priority)}`}>
+                                                    {project.priority}
+                                                </span>
                                             </div>
-                                            <div className={`px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${getPriorityColor(project.priority)}`}>
-                                                {project.priority}
+                                            <div className="space-y-2 mb-3">
+                                                <div className="flex items-center text-xs text-slate-600">
+                                                    <Calendar className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                                                    <span>{formatDate(project.startDate)}</span>
+                                                    <span className="mx-1.5">→</span>
+                                                    <span>{formatDate(project.dueDate)}</span>
+                                                </div>
+                                                <div className="flex items-center text-sm">
+                                                    <Clock className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                                                    <span className={`${isOverdue ? 'text-red-600' : 'text-slate-500'} font-medium`}>
+                                                        {daysLeft}
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Content Section */}
-                                    <div className="p-6 flex-1 flex flex-col">
-                                        {/* Due Date Card */}
-                                        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                                            <div className="flex items-center space-x-2 text-sm mb-1">
-                                                <CalendarDays className="w-4 h-4 text-blue-600" />
-                                                <span className="font-semibold text-blue-900">Due: {formatDate(project.dueDate)}</span>
-                                            </div>
-                                            <div className="flex items-center space-x-2 text-xs">
-                                                <Clock className="w-3 h-3 text-blue-500" />
-                                                <span className={`font-medium ${getDaysUntilDue(project.dueDate).includes('overdue')
-                                                        ? 'text-red-600'
-                                                        : getDaysUntilDue(project.dueDate).includes('today') || getDaysUntilDue(project.dueDate).includes('tomorrow')
-                                                            ? 'text-orange-600'
-                                                            : 'text-blue-700'
-                                                    }`}>
-                                                    {getDaysUntilDue(project.dueDate)}
+                                            <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-auto">
+                                                <div className="flex items-center text-sm text-slate-600">
+                                                    <Users className="w-4 h-4 mr-2 text-slate-400" />
+                                                    <span>{project.members.length} member{project.members.length !== 1 ? 's' : ''}</span>
+                                                </div>
+                                                <span className="text-blue-600 group-hover:underline font-medium text-sm">
+                                                    View Project
                                                 </span>
                                             </div>
                                         </div>
-
-                                        {/* Members Section */}
-                                        <div className="mb-6 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-2 text-sm text-gray-700">
-                                                    <Users className="w-4 h-4 text-gray-500" />
-                                                    <span className="font-medium">{project.members.length}</span>
-                                                    <span>member{project.members.length !== 1 ? 's' : ''}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                    </Link>
+                                );
+                            })}
                         </div>
                     ) : (
-                        /* List View */
+                        /* List View - Unchanged */
                         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                            <div className="overflow-x-auto">
+                           <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead className="bg-gray-50 border-b border-gray-200">
                                         <tr>
@@ -504,7 +455,6 @@ const Projects = () => {
                                             >
                                                 <td className="py-4 px-6">
                                                     <div className="flex items-center gap-3">
-                                                        {/* Project Logo in List View */}
                                                         <div className={`w-8 h-8 rounded-lg ${getLogoColor(project.title)} text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0`}>
                                                             {getProjectLogo(project.title)}
                                                         </div>
@@ -527,7 +477,7 @@ const Projects = () => {
                                                 </td>
                                                 <td className="py-4 px-6">
                                                     <div className="text-sm text-gray-900">{formatDate(project.dueDate)}</div>
-                                                    <div className="text-xs text-gray-500">{getDaysUntilDue(project.dueDate)}</div>
+                                                    <div className="text-xs text-gray-500">{getDaysRemaining(project.dueDate)}</div>
                                                 </td>
                                                 <td className="py-4 px-6">
                                                     <div className="flex items-center space-x-1 text-sm text-gray-600">
